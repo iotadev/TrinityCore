@@ -4,7 +4,19 @@ Originally drafted 2026-09-27 before the first private module commit. The
 preparation sequence below records the intended split; the subsequent state is
 summarized immediately below.
 
-## Subsequent local checkout state
+## Current repository layout (2026-09-28)
+
+The source snapshots have been pushed to `iotadev/TrinityCore`,
+`iotadev/cata-playerbots`, and `iotadev/cata-ahbot`. The core README records the
+matching module revisions. Modules are separate clones placed at
+`modules/mod-playerbots` and `modules/mod-ahbot`; their contents are ignored by
+the core repository. Playerbots publication starts with reviewed source in a
+new Git history, while the core retains its upstream history.
+
+The remaining sections preserve the earlier split plan and its validation
+checkpoint. They are not current repository setup instructions.
+
+## Checkout state at the first split (historical)
 
 The first 32-file Playerbots alpha snapshot was committed to a separate private
 repository. The module's Git-backed checkout now occupies

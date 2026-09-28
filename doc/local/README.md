@@ -12,6 +12,13 @@ Historical evidence directory names identify past runs; they are not fixtures
 distributed with the repository. Reproduction instructions must specify required
 inputs and allow developers to supply their own environment paths.
 
+For current checkout instructions and compatible module revisions, start with
+the [core README](../../README.md) and [publication status](core/PUBLISHING_CHECKLIST.md).
+Dated reports and plans describe their recorded milestones; statements such as
+"not yet imported" or "not published" in those reports are historical, not the
+current feature list. Local development commit IDs and ignored evidence paths
+are archival references and need not be available in a fresh public clone.
+
 ## Playerbots
 
 - [Roadmap](playerbots/PLAYERBOTS_PORT_ROADMAP.md)

@@ -29,8 +29,8 @@ For the first coordinated source snapshot, use these matching module revisions:
 
 | Module | Repository | Commit |
 | --- | --- | --- |
-| Playerbots | [iotadev/cata-playerbots](https://github.com/iotadev/cata-playerbots) | `9525015e05d3ad74f7b59897025abf82a5a254de` |
-| AHBot | [iotadev/cata-ahbot](https://github.com/iotadev/cata-ahbot) | `c20a117ecac92087dfe8be5706e33ecd319d3304` |
+| Playerbots | [iotadev/cata-playerbots](https://github.com/iotadev/cata-playerbots) | `afab1ea0201f53427aaf283087d36e68392938f9` |
+| AHBot | [iotadev/cata-ahbot](https://github.com/iotadev/cata-ahbot) | `ac2064e91b02af6b345b492a3f3453614b0087ab` |
 
 Clone each repository into the shown `modules/` directory and check out its
 listed commit before configuring the build. These are source modules compiled
@@ -60,8 +60,10 @@ mechanics and functionality.
 
 It is completely open source; community involvement is highly encouraged.
 
-If you wish to contribute ideas or code please visit our site linked below or
-make pull requests to our [Github repository](https://github.com/The-Cataclysm-Preservation-Project/TrinityCore).
+For this fork's module integration and core changes, submit pull requests to
+[iotadev/TrinityCore](https://github.com/iotadev/TrinityCore/pulls). Playerbots and
+AHBot changes belong in their respective repositories linked above. The links
+to TrinityCore sites below describe the upstream project.
 
 For further information on the TrinityCore project, please visit our project
 website at [TrinityCore.org](https://www.trinitycore.org).
@@ -76,7 +78,15 @@ https://github.com/The-Cataclysm-Preservation-Project/TrinityCore/releases
 
 ## Reporting issues
 
-Issues can be reported via the [Github issue tracker](https://github.com/The-Cataclysm-Preservation-Project/TrinityCore/issues).
+Report Playerbots and AHBot problems in their respective module repositories
+linked above. Include the core and module commit IDs, relevant configuration
+with secrets removed, and steps to reproduce. The fork's issue tracker may not
+be enabled; core fixes can be proposed through its pull requests.
+
+Use the [upstream issue tracker](https://github.com/The-Cataclysm-Preservation-Project/TrinityCore/issues)
+only for problems reproduced on unmodified upstream code. Keep credentials,
+database dumps, client files, extracted game data, and raw private logs out of
+reports and pull requests.
 
 Please take the time to review existing issues before submitting your own to
 prevent duplicates.

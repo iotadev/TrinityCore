@@ -34,5 +34,6 @@ Known limitations:
 - No forced wipe, full dungeon clear, autonomous population or general extension
   compatibility claim is made from this run.
 
-This is sufficient for a clearly labelled private source-preservation checkpoint.
-Public core and private module preparation is described in PLAYERBOTS_REPOSITORY_PLAN.md.
+This run supported the original source-preservation checkpoint. Current source
+publication status is recorded in [the publication checklist](../core/PUBLISHING_CHECKLIST.md);
+the limitations above still apply to this playtest evidence.
