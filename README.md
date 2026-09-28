@@ -29,7 +29,7 @@ For the first coordinated source snapshot, use these matching module revisions:
 
 | Module | Repository | Commit |
 | --- | --- | --- |
-| Playerbots | [iotadev/cata-playerbots](https://github.com/iotadev/cata-playerbots) | `b9b6b0c09dbf47053ad294c040e1a39bf3ea2ee1` |
+| Playerbots | [iotadev/cata-playerbots](https://github.com/iotadev/cata-playerbots) | `9525015e05d3ad74f7b59897025abf82a5a254de` |
 | AHBot | [iotadev/cata-ahbot](https://github.com/iotadev/cata-ahbot) | `c20a117ecac92087dfe8be5706e33ecd319d3304` |
 
 Clone each repository into the shown `modules/` directory and check out its
