@@ -8,7 +8,7 @@ is a coordinated three-repository set: core, Playerbots, and AHBot. No client,
 extracted game data, database, credentials, build products or local evidence
 bundles belong in any outgoing repository.
 
-## Current boundary (2026-09-27)
+## Current boundary (2026-09-28)
 
 - The public fork exists, but this development checkout's `origin` still points
   to the Cataclysm Preservation Project. Do not push the development branch to
@@ -26,6 +26,12 @@ bundles belong in any outgoing repository.
   player auctions under the buyer action cap. Earlier Playerbots build/lifecycle
   checks used the matching private module. These are checkpoint results, not
   tests of the final publication snapshot or all gameplay behavior.
+- From the isolated publication candidate, `worldserver` and `tests-common`
+  build in RelWithDebInfo with neither module, with each module individually,
+  and with both modules at the revisions listed in the core README. CTest passed
+  19/19 core-only, 65/65 Playerbots-only, 19/19 AHBot-only, and 65/65 combined.
+  These source/build checks do not replace a disposable runtime replay of the
+  exact candidate or an in-game test of the new opt-in Warrior engine path.
 
 ## Required before the first push
 
