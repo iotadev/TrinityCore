@@ -127,10 +127,11 @@ namespace MMAP
         MMapData* mmap = loadedMMaps[mapId];
         ASSERT(mmap->navMesh);
 
-        // check if we already have this tile loaded
+        // A tile already in the navmesh satisfies the load request. Do not
+        // report a failure or change ownership/counts for repeated requests.
         uint32 packedGridPos = packTileID(x, y);
         if (mmap->loadedTileRefs.find(packedGridPos) != mmap->loadedTileRefs.end())
-            return false;
+            return true;
 
         // load this tile :: mmaps/MMMXXYY.mmtile
         std::string fileName = Trinity::StringFormat(TILE_FILE_NAME_FORMAT, basePath.c_str(), mapId, x, y);

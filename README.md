@@ -1,6 +1,46 @@
 # ![logo](https://community.trinitycore.org/public/style_images/1_trinitycore.png) TrinityCore
 
-## Build Status
+## Experimental Cataclysm development fork
+
+This fork develops optional Playerbots and Auction House Bot modules
+for TrinityCore Cataclysm 4.3.4. It is work in progress, not a ready-to-run
+playerbot dungeon server. Playerbots is disabled by default. A manually
+configured low-level party has been tested locally with starter Warrior,
+Mage, and Priest behavior; this does not establish a complete dungeon clear,
+general class/spec support, or autonomous population.
+See the [local documentation index](doc/local/README.md),
+[Playerbots development notes](doc/local/playerbots/PLAYERBOTS_DEV.md), and
+[AHBot development plan](doc/local/ahbot/AHBOT_DEV.md) for
+the current scope and validation status.
+
+This repository retains the history and GPL-2.0 license of the upstream
+[Cataclysm Preservation Project TrinityCore](https://github.com/The-Cataclysm-Preservation-Project/TrinityCore).
+It contains server source, not a game client or game data.
+
+Playerbots and AHBot live in separate source repositories and are not included
+in a core-only checkout. The core builds without either module. Enabling them
+requires matching checkouts at `modules/mod-playerbots` and
+`modules/mod-ahbot`, respectively; arbitrary module revisions are not assumed
+compatible. See the [module integration guide](modules/README.md) for the build
+boundary. The modules are independently selectable with
+`-DMODULE_MOD_PLAYERBOTS=ON|OFF` and `-DMODULE_MOD_AHBOT=ON|OFF`.
+
+For the first coordinated source snapshot, use these matching module revisions:
+
+| Module | Repository | Commit |
+| --- | --- | --- |
+| Playerbots | [iotadev/cata-playerbots](https://github.com/iotadev/cata-playerbots) | `8eba3475645c1f7136f06c41ec8fb6eb946c3a98` |
+| AHBot | [iotadev/cata-ahbot](https://github.com/iotadev/cata-ahbot) | `e955e72d4e943fa17b5bf50b80c93302d5eb6828` |
+
+Clone each repository into the shown `modules/` directory and check out its
+listed commit before configuring the build. These are source modules compiled
+into this core, not runtime plug-ins. Neither module is required for a core-only
+build. See [module integration](modules/README.md) for configuration details.
+
+## Upstream build status
+
+The badges below report the upstream project's branches, not CI results for
+this development fork.
 
 
 4.3.4 (master) |

@@ -22,3 +22,14 @@ nbproject/*
 .vscode
 cmake-build-*/
 .vs
+
+# Local module settings; distributed templates remain tracked.
+modules/**/*.conf
+
+# Optional modules are maintained in separate Git checkouts.
+/modules/mod-playerbots/
+/modules/mod-ahbot/
+
+# Generated local test credentials must stay local even if copied outside build/.
+test-db-credentials.json
+test-login.txt

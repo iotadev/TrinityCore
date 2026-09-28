@@ -24,6 +24,7 @@
 
 #include <boost/circular_buffer_fwd.hpp>
 #include <map>
+#include <memory>
 #include <unordered_map>
 
 #include "AsyncCallbackProcessor.h"
@@ -44,6 +45,7 @@ class Item;
 class LoginQueryHolder;
 class Object;
 class Player;
+class PlayerbotSessionHooks;
 class Quest;
 class SpellCastTargets;
 class Unit;
@@ -471,12 +473,39 @@ struct PacketCounter
     uint32 amountCounter;
 };
 
+enum class WorldSessionOrigin : uint8
+{
+    Client,
+    Server
+};
+
+enum class WorldSessionInitializationState : uint8
+{
+    Created,
+    Loading,
+    Ready,
+    Failed
+};
+
 /// Player session in the World
 class TC_GAME_API WorldSession
 {
     public:
-        WorldSession(uint32 id, std::string&& name, std::shared_ptr<WorldSocket> sock, AccountTypes sec, uint8 expansion, time_t mute_time, LocaleConstant locale, uint32 recruiter, bool isARecruiter);
+        WorldSession(uint32 id, std::string&& name, std::shared_ptr<WorldSocket> sock, AccountTypes sec, uint8 expansion, time_t mute_time, LocaleConstant locale, uint32 recruiter, bool isARecruiter, WorldSessionOrigin origin, ObjectGuid serverOriginCharacterGuid = ObjectGuid::Empty);
         ~WorldSession();
+
+        bool IsServerOrigin() const { return _origin == WorldSessionOrigin::Server; }
+        static bool IsSupportedServerOriginClass(uint8 playerClass);
+        ObjectGuid GetServerOriginCharacterGuid() const { return _serverOriginCharacterGuid; }
+        WorldSessionInitializationState GetInitializationState() const { return _initializationState; }
+        void RequestServerOriginExit();
+        void RequestServerOriginFollow(uint32 characterGuidLow);
+        void RequestServerOriginHold();
+        uint32 GetServerOriginFollowTargetGuidLow() const;
+        void RequestServerOriginAttack();
+        void RequestServerOriginCease();
+        void RequestServerOriginInstanceJoin(uint32 mapId);
+        bool IsServerOriginAttacking() const;
 
         bool PlayerLoading() const { return !m_playerLoading.IsEmpty(); }
         bool PlayerLogout() const { return m_playerLogout; }
@@ -677,6 +706,7 @@ class TC_GAME_API WorldSession
         void HandlePlayerLoginOpcode(WorldPackets::Character::PlayerLogin& packet);
 
         void SendConnectToInstance(WorldPackets::Auth::ConnectToSerial serial);
+        bool BeginServerOriginCharacterLogin();
         void HandleContinuePlayerLogin();
         void AbortLogin(WorldPackets::Character::LoginFailureReason reason);
         void HandleLoadScreenOpcode(WorldPackets::Character::LoadingScreenNotify& packet);
@@ -1421,6 +1451,11 @@ class TC_GAME_API WorldSession
 
         GameClient* _gameClient;
         bool _legacyConnectionModeEnabled;
+        WorldSessionOrigin const _origin;
+        ObjectGuid const _serverOriginCharacterGuid;
+        WorldSessionInitializationState _initializationState;
+        bool _serverOriginExitRequested;
+        std::unique_ptr<PlayerbotSessionHooks> _playerbotHooks;
 
         WorldSession(WorldSession const& right) = delete;
         WorldSession& operator=(WorldSession const& right) = delete;

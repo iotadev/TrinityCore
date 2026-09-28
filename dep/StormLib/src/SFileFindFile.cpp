@@ -23,7 +23,7 @@ struct TMPQSearch
     DWORD  dwSearchTableItems;          // Number of items in the search table
     DWORD  dwNextIndex;                 // Next file index to be checked
     DWORD  dwFlagMask;                  // For checking flag mask
-    char   szSearchMask[1];             // Search mask (variable length)
+    char   szSearchMask[];             // Search mask (variable length)
 };
 
 //-----------------------------------------------------------------------------

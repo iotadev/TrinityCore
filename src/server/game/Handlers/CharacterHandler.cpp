@@ -754,6 +754,22 @@ void WorldSession::HandlePlayerLoginOpcode(WorldPackets::Character::PlayerLogin&
         SendConnectToInstance(WorldPackets::Auth::ConnectToSerial::WorldAttempt1);
 }
 
+bool WorldSession::BeginServerOriginCharacterLogin()
+{
+    if (!IsServerOrigin() || GetInitializationState() != WorldSessionInitializationState::Ready ||
+        _serverOriginExitRequested || PlayerLoading() || GetPlayer())
+        return false;
+
+    CharacterCacheEntry const* character = sCharacterCache->GetCharacterCacheByGuid(_serverOriginCharacterGuid);
+    if (!character || character->AccountId != GetAccountId() || !IsSupportedServerOriginClass(character->Class) ||
+        ObjectAccessor::FindConnectedPlayer(_serverOriginCharacterGuid))
+        return false;
+
+    m_playerLoading = _serverOriginCharacterGuid;
+    HandleContinuePlayerLogin();
+    return PlayerLoading();
+}
+
 void WorldSession::HandleContinuePlayerLogin()
 {
     if (!PlayerLoading() || GetPlayer())
@@ -769,7 +785,7 @@ void WorldSession::HandleContinuePlayerLogin()
         return;
     }
 
-    if (!_legacyConnectionModeEnabled)
+    if (!_legacyConnectionModeEnabled && !IsServerOrigin())
         SendPacket(WorldPackets::Auth::ResumeComms(CONNECTION_TYPE_INSTANCE).Write());
 
     AddQueryHolderCallback(CharacterDatabase.DelayQueryHolder(holder)).AfterComplete([this](SQLQueryHolderBase const& holder)
@@ -787,6 +803,8 @@ void WorldSession::AbortLogin(WorldPackets::Character::LoginFailureReason reason
     }
 
     m_playerLoading.Clear();
+    if (IsServerOrigin())
+        RequestServerOriginExit();
     SendPacket(WorldPackets::Character::CharacterLoginFailed(reason).Write());
 }
 
@@ -810,6 +828,8 @@ void WorldSession::HandlePlayerLogin(LoginQueryHolder const& holder)
         KickPlayer();                                       // disconnect client, player no set to session and it will not deleted or saved at kick
         delete pCurrChar;                                   // delete it manually
         m_playerLoading.Clear();
+        if (IsServerOrigin())
+            RequestServerOriginExit();
         return;
     }
 

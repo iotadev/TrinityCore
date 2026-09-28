@@ -58,11 +58,9 @@ enum ChasePositionCheckOptions : uint8
 
 inline void DoMovementInform(Unit* owner, Unit const* target)
 {
-    if (owner->IsCreature())
-        return;
-
-    if (CreatureAI* AI = owner->ToCreature()->AI())
-        AI->MovementInform(CHASE_MOTION_TYPE, target->GetGUID().GetCounter());
+    if (Creature* creature = owner->ToCreature())
+        if (CreatureAI* ai = creature->AI())
+            ai->MovementInform(CHASE_MOTION_TYPE, target->GetGUID().GetCounter());
 }
 
 inline float GetHitboxSum(Unit const* owner, Unit const* target)

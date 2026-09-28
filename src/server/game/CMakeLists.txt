@@ -44,6 +44,36 @@ target_link_libraries(game-interface
 add_library(game
   ${PRIVATE_SOURCES})
 
+# Optional module sources live outside the core and use its native static target.
+add_subdirectory("${CMAKE_SOURCE_DIR}/modules" "modules")
+get_property(TC_MODULE_CONFIG_FILES GLOBAL PROPERTY TC_MODULE_CONFIG_FILES)
+list(LENGTH TC_MODULE_CONFIG_FILES TC_MODULE_CONFIG_COUNT)
+set(TC_MODULE_CONFIG_ENTRIES "")
+foreach(MODULE_CONFIG_FILE IN LISTS TC_MODULE_CONFIG_FILES)
+  string(APPEND TC_MODULE_CONFIG_ENTRIES "    \"${MODULE_CONFIG_FILE}\",\n")
+endforeach()
+get_property(TC_ENABLED_MODULE_NAMES GLOBAL PROPERTY TC_ENABLED_MODULE_NAMES)
+list(FIND TC_ENABLED_MODULE_NAMES "mod-playerbots" TC_PLAYERBOTS_INDEX)
+set(TC_MODULE_PLAYERBOTS OFF)
+if(NOT TC_PLAYERBOTS_INDEX EQUAL -1)
+  set(TC_MODULE_PLAYERBOTS ON)
+endif()
+list(FIND TC_ENABLED_MODULE_NAMES "mod-ahbot" TC_AHBOT_INDEX)
+set(TC_MODULE_AHBOT OFF)
+if(NOT TC_AHBOT_INDEX EQUAL -1)
+  set(TC_MODULE_AHBOT ON)
+endif()
+configure_file("${CMAKE_SOURCE_DIR}/modules/ModuleConfigFiles.h.in" ModuleConfigFiles.h @ONLY)
+configure_file("${CMAKE_SOURCE_DIR}/modules/ModuleBuildConfig.h.in" ModuleBuildConfig.h)
+get_property(TC_MODULE_SCRIPT_LOADERS GLOBAL PROPERTY TC_MODULE_SCRIPT_LOADERS)
+set(TC_MODULE_SCRIPT_DECLARATIONS "")
+set(TC_MODULE_SCRIPT_CALLS "")
+foreach(MODULE_SCRIPT_LOADER IN LISTS TC_MODULE_SCRIPT_LOADERS)
+  string(APPEND TC_MODULE_SCRIPT_DECLARATIONS "void ${MODULE_SCRIPT_LOADER}();\n")
+  string(APPEND TC_MODULE_SCRIPT_CALLS "    ${MODULE_SCRIPT_LOADER}();\n")
+endforeach()
+configure_file("${CMAKE_SOURCE_DIR}/modules/ModuleScriptLoader.h.in" ModuleScriptLoader.h @ONLY)
+
 target_include_directories(game
   PRIVATE
     ${CMAKE_CURRENT_BINARY_DIR})

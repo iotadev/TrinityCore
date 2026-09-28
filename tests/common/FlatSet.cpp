@@ -15,7 +15,7 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "tc_catch2.h"
+#include "catch2/catch.hpp"
 
 #include "FlatSet.h"
 

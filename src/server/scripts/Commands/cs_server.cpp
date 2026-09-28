@@ -42,7 +42,12 @@ EndScriptData */
 #include "VMapManager2.h"
 #include "World.h"
 #include "WorldSession.h"
+#include "PlayerbotModuleCommands.h"
 #include <boost/filesystem/directory.hpp>
+#include <cerrno>
+#include <cstdlib>
+#include <limits>
+#include <sstream>
 #include <boost/filesystem/operations.hpp>
 #include <openssl/crypto.h>
 #include <openssl/opensslv.h>
@@ -89,7 +94,9 @@ public:
             { "closed",   rbac::RBAC_PERM_COMMAND_SERVER_SET_CLOSED,   true, &HandleServerSetClosedCommand,   "" },
         };
 
-        static std::vector<ChatCommand> serverCommandTable =
+        std::vector<ChatCommand> devPlayerbotCommandTable = GetPlayerbotModuleCommands();
+
+        std::vector<ChatCommand> serverCommandTable =
         {
             { "corpses",      rbac::RBAC_PERM_COMMAND_SERVER_CORPSES,      true, &HandleServerCorpsesCommand, "" },
             { "debug",        rbac::RBAC_PERM_COMMAND_SERVER_DEBUG,        true, &HandleServerDebugCommand,   "" },
@@ -104,14 +111,16 @@ public:
             { "set",          rbac::RBAC_PERM_COMMAND_SERVER_SET,          true, nullptr,                     "", serverSetCommandTable },
         };
 
-        static std::vector<ChatCommand> commandTable =
+        if (!devPlayerbotCommandTable.empty())
+            serverCommandTable.push_back({ "playerbotdev", rbac::RBAC_PERM_COMMAND_SERVER_DEBUG, true, nullptr, "", devPlayerbotCommandTable });
+
+        std::vector<ChatCommand> commandTable =
         {
             { "server", rbac::RBAC_PERM_COMMAND_SERVER, true, nullptr, "", serverCommandTable },
         };
         return commandTable;
     }
 
-    // Triggering corpses expire check in world
     static bool HandleServerCorpsesCommand(ChatHandler* /*handler*/, char const* /*args*/)
     {
         sWorld->RemoveOldCorpses();

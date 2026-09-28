@@ -16,6 +16,7 @@
  */
 
 #include "ScriptMgr.h"
+#include "OptionalModules.h"
 #include "Chat.h"
 #include "Config.h"
 #include "Creature.h"
@@ -1065,6 +1066,7 @@ void ScriptMgr::Initialize()
            "Script loader callback wasn't registered!");
 
     _script_loader_callback();
+    AddOptionalModuleScripts();
 
     // Initialize all dynamic scripts
     // and finishes the context switch to do

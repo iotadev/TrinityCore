@@ -1,0 +1,7 @@
+#ifndef TRINITY_MODULE_SCRIPT_LOADER_H
+#define TRINITY_MODULE_SCRIPT_LOADER_H
+@TC_MODULE_SCRIPT_DECLARATIONS@
+inline void RegisterOptionalModuleScripts()
+{
+@TC_MODULE_SCRIPT_CALLS@}
+#endif

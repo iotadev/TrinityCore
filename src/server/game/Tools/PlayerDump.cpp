@@ -546,7 +546,8 @@ inline void AppendTableDump(StringTransaction& trans, TableStruct const& tableSt
             char const* cString = fields[i].GetCString();
             ++i;
 
-            // null pointer -> we have null
+            // Keep a quoted marker while parsing dump columns; convert it to
+            // SQL NULL only after GUID/name substitutions are complete.
             if (!cString)
                 ss << "'nullptr'";
             else
@@ -749,11 +750,12 @@ DumpReturn PlayerDumpWriter::WriteDump(std::string const& file, ObjectGuid::LowT
 // Reading - High-level functions
 inline void FixNULLfields(std::string& line)
 {
+    // Accept dumps written by older builds that used a quoted nullptr marker.
     static std::string const NullString("'nullptr'");
     size_t pos = line.find(NullString);
     while (pos != std::string::npos)
     {
-        line.replace(pos, NullString.length(), "nullptr");
+        line.replace(pos, NullString.length(), "NULL");
         pos = line.find(NullString);
     }
 }

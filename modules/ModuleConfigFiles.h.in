@@ -1,0 +1,7 @@
+#ifndef TRINITY_MODULE_CONFIG_FILES_H
+#define TRINITY_MODULE_CONFIG_FILES_H
+#include <array>
+inline constexpr std::array<char const*, @TC_MODULE_CONFIG_COUNT@> ModuleConfigFiles =
+{
+@TC_MODULE_CONFIG_ENTRIES@};
+#endif

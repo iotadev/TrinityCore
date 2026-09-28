@@ -169,7 +169,8 @@ class OutdoorPvPZM : public OutdoorPvP
         void SetHordeTowersControlled(uint32 count);
 
     private:
-        std::unique_ptr<OPvPCapturePointZM_Graveyard> m_Graveyard;
+        // Non-owning: OutdoorPvP::m_capturePoints owns this after registration.
+        OPvPCapturePointZM_Graveyard* m_Graveyard = nullptr;
 
         uint32 m_AllianceTowersControlled;
         uint32 m_HordeTowersControlled;

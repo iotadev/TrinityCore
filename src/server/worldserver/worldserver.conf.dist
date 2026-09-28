@@ -275,6 +275,11 @@ Compression = 1
 
 LegacyConnectionModeEnabled = 0
 
+# Optional modules keep their settings in this directory, relative to this file.
+# Copy modules/<module>.conf.dist to modules/<module>.conf to enable overrides.
+# Playerbots runtime remains disabled by default in modules/playerbots.conf.dist.
+Modules.ConfigDirectory = "modules"
+
 #
 #    PlayerLimit
 #        Description: Maximum number of players in the world. Excluding Mods, GMs and Admins.
@@ -3482,6 +3487,16 @@ AuctionHouseBot.Items.Vendor = 0
 AuctionHouseBot.Items.Loot = 1
 
 #
+#    AuctionHouseBot.Items.Crafted
+#       Description: Include direct outputs of spells associated with a
+#                    profession skill line. Random spell-loot results remain
+#                    covered by AuctionHouseBot.Items.Loot.
+#       Default:     0 - (Disabled)
+#                    1 - (Enabled)
+
+AuctionHouseBot.Items.Crafted = 0
+
+#
 #    AuctionHouseBot.Items.Misc
 #       Description: Include misc. items.
 #       Default:     0 - (Disabled)
@@ -3753,6 +3768,73 @@ AuctionHouseBot.forceIncludeItems = ""
 AuctionHouseBot.forceExcludeItems = "6343,6345,6376"
 
 #
+#    AuctionHouseBot.MarketCatalog.File
+#       Description: Optional CSV output path for the seller's eligible item
+#                    pool plus profession-crafted candidates excluded by the
+#                    current filters. Use seller_eligible=1 for the exact pool.
+#                    Existing files are replaced at worldserver startup.
+#                    This diagnostic export does not change seller behavior.
+#       Default:     "" - (Disabled)
+#
+
+AuctionHouseBot.MarketCatalog.File = ""
+
+#
+#    AuctionHouseBot.SupplyProfile.Enabled
+#       Description: Apply segment-level per-item listing ceilings to AHBot
+#                    supply. Segments are derived from the authoritative item
+#                    class: commodities, equipment, and other items.
+#       Default:     0 - (Disabled; legacy selection behavior)
+#                    1 - (Enabled)
+
+AuctionHouseBot.SupplyProfile.Enabled = 0
+
+#
+#    AuctionHouseBot.SupplyProfile.*.MaxAuctionsPerItem
+#       Description: Maximum simultaneous AHBot-owned listings for one item in
+#                    each auction house. A value of 0 means unlimited.
+#       Defaults:    Commodity = 3
+#                    Equipment = 1
+#                    Other = 1
+
+AuctionHouseBot.SupplyProfile.Commodity.MaxAuctionsPerItem = 3
+AuctionHouseBot.SupplyProfile.Equipment.MaxAuctionsPerItem = 1
+AuctionHouseBot.SupplyProfile.Other.MaxAuctionsPerItem = 1
+
+#
+#    AuctionHouseBot.SupplyProfile.*.Weight
+#       Description: Relative listing targets for the three market segments.
+#                    Each configured quality total is divided across non-empty
+#                    segments with exact largest-remainder allocation, then
+#                    divided among the segment's item classes by class priority.
+#       Defaults:    Commodity = 45
+#                    Equipment = 40
+#                    Other = 15
+
+AuctionHouseBot.SupplyProfile.Commodity.Weight = 45
+AuctionHouseBot.SupplyProfile.Equipment.Weight = 40
+AuctionHouseBot.SupplyProfile.Other.Weight = 15
+
+#
+#    AuctionHouseBot.SupplyProfile.Commodity.StackWeight.*
+#       Description: Relative chances for commodity lot shapes. Quarter and
+#                    half stacks round upward, remain at least two items, and
+#                    never exceed the item's actual maximum stack size.
+#                    Equipment always uses a single item while the profile is
+#                    enabled. Other items retain legacy class stack behavior.
+#                    If all four weights are zero, commodities also use the
+#                    legacy class stack behavior.
+#       Defaults:    Single = 20
+#                    Quarter = 25
+#                    Half = 25
+#                    Full = 30
+
+AuctionHouseBot.SupplyProfile.Commodity.StackWeight.Single = 20
+AuctionHouseBot.SupplyProfile.Commodity.StackWeight.Quarter = 25
+AuctionHouseBot.SupplyProfile.Commodity.StackWeight.Half = 25
+AuctionHouseBot.SupplyProfile.Commodity.StackWeight.Full = 30
+
+#
 #    AuctionHouseBot.Class.RandomStackRatio.*
 #       Description: Used to determine how often a stack of the class will be single or randomly-size stacked when posted
 #                    Value needs to be between 0 and 100, no decimal.  Anything higher than 100 will be treated as 100
@@ -3869,6 +3951,28 @@ AuctionHouseBot.Buyer.ChanceMultiplier.Yellow = 100
 #       Default:     20 (20min.)
 
 AuctionHouseBot.Buyer.Recheck.Interval = 20
+
+#
+#    AuctionHouseBot.Buyer.EvaluationsPerCycle.Normal
+#    AuctionHouseBot.Buyer.EvaluationsPerCycle.Boost
+#       Description: Maximum player auctions evaluated by one buyer house cycle.
+#                    Boost is used when the eligible-auction count exceeds the
+#                    configured boost value. These settings are independent of
+#                    the seller's AuctionHouseBot.ItemsPerCycle settings.
+#       Defaults:    Normal = 20
+#                    Boost = 1000
+
+AuctionHouseBot.Buyer.EvaluationsPerCycle.Normal = 20
+AuctionHouseBot.Buyer.EvaluationsPerCycle.Boost = 1000
+
+#
+#    AuctionHouseBot.Buyer.ActionsPerCycle
+#       Description: Maximum successful bids plus buyouts in one buyer house
+#                    cycle. Zero preserves legacy behavior by allowing every
+#                    evaluated auction to result in an action.
+#       Default:     0 - (Unlimited within the evaluation limit)
+
+AuctionHouseBot.Buyer.ActionsPerCycle = 0
 
 #
 ###################################################################################################

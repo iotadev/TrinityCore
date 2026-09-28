@@ -68,6 +68,32 @@ bool ConfigMgr::LoadInitial(std::string const& file, std::vector<std::string> ar
     return true;
 }
 
+bool ConfigMgr::LoadAdditional(std::string const& file, std::string& error)
+{
+    bpt::ptree fullTree;
+    try
+    {
+        bpt::ini_parser::read_ini(file, fullTree);
+        if (fullTree.size() != 1 || fullTree.begin()->second.empty())
+        {
+            error = "module config must contain one non-empty section (" + file + ")";
+            return false;
+        }
+
+        std::lock_guard<std::mutex> lock(_configLock);
+        bpt::ptree merged = _config;
+        for (auto const& entry : fullTree.begin()->second)
+            merged.put_child(bpt::ptree::path_type(entry.first, '/'), entry.second);
+        _config.swap(merged);
+    }
+    catch (bpt::ini_parser::ini_parser_error const& e)
+    {
+        error = e.message() + " (" + e.filename() + ":" + std::to_string(e.line()) + ")";
+        return false;
+    }
+    return true;
+}
+
 ConfigMgr* ConfigMgr::instance()
 {
     static ConfigMgr instance;

@@ -1,0 +1,49 @@
+# Local development documentation
+
+These are documents created for this development fork, not original TrinityCore
+documentation. Upstream files remain in their original locations. Paths to source,
+scripts and ignored build evidence inside reports are repository-root-relative
+unless stated otherwise.
+
+Documentation describes project requirements, implementation decisions and
+validation results. Keep personal machine inventories, unrelated installations,
+account details and development-tool session history out of these files.
+Historical evidence directory names identify past runs; they are not fixtures
+distributed with the repository. Reproduction instructions must specify required
+inputs and allow developers to supply their own environment paths.
+
+## Playerbots
+
+- [Roadmap](playerbots/PLAYERBOTS_PORT_ROADMAP.md)
+- [Development history](playerbots/PLAYERBOTS_DEV.md)
+- [Engine integration notes](playerbots/PLAYERBOTS_ENGINE_INTEGRATION_NOTES.md)
+- [Work packets](playerbots/PLAYERBOTS_WORK_PACKETS.md)
+- [Repository split plan](playerbots/PLAYERBOTS_REPOSITORY_PLAN.md)
+- [Low-level party milestone](playerbots/PLAYERBOTS_PARTY_MILESTONE.md)
+- Validation: [lifecycle](playerbots/PLAYERBOTS_LIFECYCLE_VALIDATION.md),
+  [harness](playerbots/PLAYERBOTS_HARNESS_VALIDATION.md),
+  [module foundation](playerbots/PLAYERBOTS_MODULE_VALIDATION.md)
+- [Lifecycle source comparison](playerbots/PLAYERBOTS_LIFECYCLE_COMPARISON.md)
+
+## Auction House Bot module
+
+- [Development plan](ahbot/AHBOT_DEV.md)
+- [Market catalog analysis](ahbot/AHBOT_MARKET_CATALOG_ANALYSIS.md)
+- Module source and configuration live in the separate `modules/mod-ahbot`
+  checkout; those files are not part of a core-only clone.
+
+## Core and test infrastructure
+
+- [Local patch register](core/LOCAL_PATCHES.md)
+- [Cleanup triage](core/CLEANUP.md)
+- [Baseline validation](core/VALIDATION.md)
+- [Runtime test instructions](core/RUNTIME_TESTING.md)
+- [Publication privacy audit](core/PUBLICATION_AUDIT.md)
+- [First public snapshot checklist](core/PUBLISHING_CHECKLIST.md)
+
+Executable scripts remain in [contrib/local](../../contrib/local/).
+Playerbots module documentation remains with its separate source checkout at
+`modules/mod-playerbots` (including its README, porting provenance, and donor
+authorship). Those files are not part of a core-only clone.
+Generated reports, logs, exported diffs and snapshots remain in ignored build/
+directories rather than this maintained documentation tree.

@@ -33,6 +33,10 @@ public:
     /// Method used only for loading main configuration files (bnetserver.conf and worldserver.conf)
     bool LoadInitial(std::string const& file, std::vector<std::string> args, std::string& error);
 
+    // Merge one section of an optional module config over the main settings.
+    // Parsing completes before changes are applied; the main filename is retained.
+    bool LoadAdditional(std::string const& file, std::string& error);
+
     static ConfigMgr* instance();
 
     bool Reload(std::string& error);

@@ -25,7 +25,7 @@
 #include "AddonMgr.h"
 #include "ArchaeologyMgr.h"
 #include "ArenaTeamMgr.h"
-#include "AuctionHouseBot.h"
+#include "AuctionHouseBotModule.h"
 #include "AuctionHouseMgr.h"
 #include "BattlefieldMgr.h"
 #include "BattlegroundMgr.h"
@@ -92,11 +92,14 @@
 #include "WeatherMgr.h"
 #include "WhoListStorage.h"
 #include "WorldSession.h"
+#include "PlayerbotSessionHooks.h"
+#include "OptionalModules.h"
 #include "WorldStateMgr.h"
 #include "WorldSocket.h"
 
 #include <boost/asio/ip/address.hpp>
 #include <boost/algorithm/string.hpp>
+#include <memory>
 
 TC_GAME_API std::atomic<bool> World::m_stopEvent(false);
 TC_GAME_API uint8 World::m_ExitCode = SHUTDOWN_EXIT_CODE;
@@ -323,6 +326,140 @@ bool World::RemoveSession(uint32 id)
     return true;
 }
 
+bool World::TryStartDevPlayerbot(bool second)
+{
+    return TryStartDevPlayerbotSlot(second ? 2 : 1);
+}
+
+bool World::RequestStopDevPlayerbot(bool second)
+{
+    return RequestStopDevPlayerbotSlot(second ? 2 : 1);
+}
+
+WorldSession* World::FindDevPlayerbotSlot(uint8 slot) const
+{
+    static std::array<WorldIntConfigs, 4> const accounts = { CONFIG_PLAYERBOTS_DEV_ACCOUNT_ID, CONFIG_PLAYERBOTS_DEV_ACCOUNT_ID_2,
+        CONFIG_PLAYERBOTS_DEV_ACCOUNT_ID_3, CONFIG_PLAYERBOTS_DEV_ACCOUNT_ID_4 };
+    static std::array<WorldIntConfigs, 4> const characters = { CONFIG_PLAYERBOTS_DEV_CHARACTER_GUID, CONFIG_PLAYERBOTS_DEV_CHARACTER_GUID_2,
+        CONFIG_PLAYERBOTS_DEV_CHARACTER_GUID_3, CONFIG_PLAYERBOTS_DEV_CHARACTER_GUID_4 };
+    if (slot < 1 || slot > accounts.size())
+        return nullptr;
+
+    uint32 accountId = getIntConfig(accounts[slot - 1]);
+    uint32 characterGuid = getIntConfig(characters[slot - 1]);
+    WorldSession* session = accountId && characterGuid ? FindSession(accountId) : nullptr;
+    return session && session->IsServerOrigin() && session->GetServerOriginCharacterGuid().GetCounter() == characterGuid ? session : nullptr;
+}
+
+bool World::TryStartDevPlayerbotSlot(uint8 slot)
+{
+    if (!getBoolConfig(CONFIG_PLAYERBOTS_DEV_ENABLED) || IsStopped() || IsShuttingDown())
+        return false;
+
+    static std::array<WorldIntConfigs, 4> const accounts = { CONFIG_PLAYERBOTS_DEV_ACCOUNT_ID, CONFIG_PLAYERBOTS_DEV_ACCOUNT_ID_2,
+        CONFIG_PLAYERBOTS_DEV_ACCOUNT_ID_3, CONFIG_PLAYERBOTS_DEV_ACCOUNT_ID_4 };
+    static std::array<WorldIntConfigs, 4> const characters = { CONFIG_PLAYERBOTS_DEV_CHARACTER_GUID, CONFIG_PLAYERBOTS_DEV_CHARACTER_GUID_2,
+        CONFIG_PLAYERBOTS_DEV_CHARACTER_GUID_3, CONFIG_PLAYERBOTS_DEV_CHARACTER_GUID_4 };
+    if (slot < 1 || slot > accounts.size())
+        return false;
+
+    uint32 accountId = getIntConfig(accounts[slot - 1]);
+    uint32 configuredGuid = getIntConfig(characters[slot - 1]);
+    if (!accountId || !configuredGuid)
+        return false;
+
+    // No two configured slots may own the same account or character.
+    for (uint8 index = 0; index < accounts.size(); ++index)
+        if (index != slot - 1 &&
+            (accountId == getIntConfig(accounts[index]) || configuredGuid == getIntConfig(characters[index])))
+            return false;
+
+    ObjectGuid characterGuid = ObjectGuid::Create<HighGuid::Player>(configuredGuid);
+
+    // World::m_sessions has one entry per account. Never replace a human session.
+    if (FindSession(accountId))
+        return false;
+
+    for (auto const& [existingAccountId, existingSession] : m_sessions)
+    {
+        if (!existingSession || !existingSession->IsServerOrigin())
+            continue;
+        bool recognized = false;
+        for (uint8 index = 0; index < accounts.size(); ++index)
+            if (existingAccountId == getIntConfig(accounts[index]) &&
+                existingSession->GetServerOriginCharacterGuid().GetCounter() == getIntConfig(characters[index]))
+                recognized = true;
+        if (!recognized)
+            return false;
+    }
+
+    uint32 playerLimit = GetPlayerAmountLimit();
+    if (playerLimit && GetActiveAndQueuedSessionCount() >= playerLimit)
+        return false;
+
+    std::string accountName;
+    if (!sAccountMgr->GetName(accountId, accountName) || sAccountMgr->IsBannedAccount(accountName))
+        return false;
+
+    LoginDatabasePreparedStatement* accountStatement = LoginDatabase.GetPreparedStatement(LOGIN_SEL_ACCOUNT_INFO);
+    accountStatement->setUInt32(0, accountId);
+    PreparedQueryResult accountResult = LoginDatabase.Query(accountStatement);
+    if (!accountResult)
+        return false;
+
+    uint8 accountExpansion = (*accountResult)[3].GetUInt8();
+
+    CharacterDatabasePreparedStatement* characterStatement = CharacterDatabase.GetPreparedStatement(CHAR_SEL_DEV_PLAYERBOT_ADMISSION);
+    characterStatement->setUInt32(0, characterGuid.GetCounter());
+    PreparedQueryResult characterResult = CharacterDatabase.Query(characterStatement);
+    if (!characterResult || (*characterResult)[0].GetUInt32() != accountId ||
+        !WorldSession::IsSupportedServerOriginClass((*characterResult)[1].GetUInt8()) || (*characterResult)[2].GetUInt8() != 0)
+        return false;
+
+    CharacterCacheEntry const* cachedCharacter = sCharacterCache->GetCharacterCacheByGuid(characterGuid);
+    if (!cachedCharacter || cachedCharacter->AccountId != accountId ||
+        cachedCharacter->Class != (*characterResult)[1].GetUInt8())
+        return false;
+
+    AccountTypes security = AccountTypes(sAccountMgr->GetSecurity(accountId, realm.Id.Realm));
+    if (security != SEC_PLAYER)
+        return false;
+
+    std::unique_ptr<WorldSession> session = std::make_unique<WorldSession>(accountId, std::move(accountName), nullptr,
+        security, accountExpansion, 0, GetDefaultDbcLocale(), 0, false, WorldSessionOrigin::Server, characterGuid);
+
+    // This entry point is world-thread-only. Insert immediately so a shutdown
+    // command later in the same CLI batch cannot overtake a queued admission.
+    session->LoadPermissions();
+    AddSession_(session.release());
+    return true;
+}
+
+bool World::RequestStopDevPlayerbotSlot(uint8 slot)
+{
+    if (WorldSession* session = FindDevPlayerbotSlot(slot))
+    {
+        session->RequestServerOriginExit();
+        return true;
+    }
+
+    return false;
+}
+
+bool World::RequestStopAllDevPlayerbots()
+{
+    bool found = false;
+    for (auto const& [accountId, session] : m_sessions)
+    {
+        if (session && session->IsServerOrigin())
+        {
+            session->RequestServerOriginExit();
+            found = true;
+        }
+    }
+    return found;
+}
+
 void World::AddSession(WorldSession* s)
 {
     addSessQueue.add(s);
@@ -336,6 +473,16 @@ void World::AddInstanceSocket(std::weak_ptr<WorldSocket> sock, uint64 connectToK
 void World::AddSession_(WorldSession* s)
 {
     ASSERT(s);
+
+    // The PB-00 account is dedicated: neither a bot nor a client may replace
+    // an already enrolled server-origin session, and a bot may not replace a client.
+    if (WorldSession* existing = FindSession(s->GetAccountId()); existing &&
+        (existing->IsServerOrigin() || s->IsServerOrigin()))
+    {
+        s->KickPlayer();
+        delete s;
+        return;
+    }
 
     //NOTE - Still there is race condition in WorldSession* being used in the Sockets
 
@@ -530,6 +677,7 @@ void World::LoadConfigSettings(bool reload)
         sMetric->LoadFromConfigs();
     }
 
+    bool moduleConfigsValid = LoadOptionalModuleConfigs();
     m_defaultDbcLocale = LocaleConstant(sConfigMgr->GetIntDefault("DBC.Locale", 0));
 
     if (m_defaultDbcLocale >= TOTAL_LOCALES || m_defaultDbcLocale == LOCALE_NONE)
@@ -1647,6 +1795,8 @@ void World::LoadConfigSettings(bool reload)
     // Legacy connection mode
     m_bool_configs[CONFIG_LEGACY_CONNECTION_MODE] = sConfigMgr->GetBoolDefault("LegacyConnectionModeEnabled", false);
 
+    LoadPlayerbotModuleSettings(*this, moduleConfigsValid);
+
     // call ScriptMgr if we're reloading the configuration
     if (reload)
         sScriptMgr->OnConfigLoad(reload);
@@ -2316,8 +2466,7 @@ void World::SetInitialWorldSettings()
     // Delete all characters which have been deleted X days before
     Player::DeleteOldCharacters();
 
-    TC_LOG_INFO("server.loading", "Initialize AuctionHouseBot...");
-    sAuctionBot->Initialize();
+    InitializeAuctionHouseBotModule();
 
     // Delete all custom channels which haven't been used for PreserveCustomChannelDuration days.
     Channel::CleanOldChannelsInDB();
@@ -2475,7 +2624,7 @@ void World::Update(uint32 diff)
     /// <li> Handle AHBot operations
     if (m_timers[WUPDATE_AHBOT].Passed())
     {
-        sAuctionBot->Update();
+        UpdateAuctionHouseBotModule();
         m_timers[WUPDATE_AHBOT].Reset();
     }
 
@@ -3030,6 +3179,23 @@ void World::_UpdateGameTime()
         ///- ... and it is overdue, stop the world (set m_stopEvent)
         if (m_ShutdownTimer <= elapsed)
         {
+            if (RequestStopAllDevPlayerbots())
+            {
+                auto now = std::chrono::steady_clock::now();
+                if (m_devPlayerbotDrainDeadline == std::chrono::steady_clock::time_point{})
+                    m_devPlayerbotDrainDeadline = now + std::chrono::seconds(30);
+
+                if (now < m_devPlayerbotDrainDeadline)
+                {
+                    m_ShutdownTimer = 1; // Allow World::UpdateSessions to finish login/logout.
+                    return;
+                }
+
+                TC_LOG_ERROR("server.worldserver", "Playerbot development sessions did not drain within 30 seconds; continuing normal world shutdown cleanup");
+                m_stopEvent = true;
+                return;
+            }
+
             if (!(m_ShutdownMask & SHUTDOWN_MASK_IDLE) || GetActiveAndQueuedSessionCount() == 0)
                 m_stopEvent = true;                         // exist code already set
             else
@@ -3054,11 +3220,17 @@ void World::ShutdownServ(uint32 time, uint32 options, uint8 exitcode, const std:
 
     m_ShutdownMask = options;
     m_ExitCode = exitcode;
+    m_devPlayerbotDrainDeadline = {};
 
     ///- If the shutdown time is 0, set m_stopEvent (except if shutdown is 'idle' with remaining sessions)
     if (time == 0)
     {
-        if (!(options & SHUTDOWN_MASK_IDLE) || GetActiveAndQueuedSessionCount() == 0)
+        if (RequestStopAllDevPlayerbots())
+        {
+            m_devPlayerbotDrainDeadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
+            m_ShutdownTimer = 1;
+        }
+        else if (!(options & SHUTDOWN_MASK_IDLE) || GetActiveAndQueuedSessionCount() == 0)
             m_stopEvent = true;                             // exist code already set
         else
             m_ShutdownTimer = 1;                            //So that the session count is re-evaluated at next world tick
@@ -3112,6 +3284,7 @@ uint32 World::ShutdownCancel()
 
     m_ShutdownMask = 0;
     m_ShutdownTimer = 0;
+    m_devPlayerbotDrainDeadline = {};
     m_ExitCode = SHUTDOWN_EXIT_CODE;                       // to default value
     SendServerMessage(msgid);
 

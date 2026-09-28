@@ -193,8 +193,9 @@ bool OutdoorPvPZM::SetupOutdoorPvP()
     for (uint8 i = 0; i < OutdoorPvPZMBuffZonesNum; ++i)
         RegisterZone(OutdoorPvPZMBuffZones[i]);
 
-    m_Graveyard = std::make_unique<OPvPCapturePointZM_Graveyard>(this);
-    AddCapturePoint(m_Graveyard.get()); // though the update function isn't used, the handleusego is!
+    auto graveyard = std::make_unique<OPvPCapturePointZM_Graveyard>(this);
+    m_Graveyard = graveyard.get();
+    AddCapturePoint(graveyard.release()); // Base capture-point map owns it.
 
     return true;
 }

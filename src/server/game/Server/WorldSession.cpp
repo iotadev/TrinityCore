@@ -26,6 +26,7 @@
 #include "BattlegroundMgr.h"
 #include "Common.h"
 #include "Config.h"
+#include "Creature.h"
 #include "DatabaseEnv.h"
 #include "GameClient.h"
 #include "GameTime.h"
@@ -36,12 +37,15 @@
 #include "Log.h"
 #include "Map.h"
 #include "MapManager.h"
+#include "MotionMaster.h"
 #include "Metric.h"
 #include "ObjectAccessor.h"
 #include "ObjectMgr.h"
 #include "Opcodes.h"
 #include "OutdoorPvPMgr.h"
 #include "PacketUtilities.h"
+#include "PartyPackets.h"
+#include "PlayerbotSessionHooks.h"
 #include "Player.h"
 #include "QueryCallback.h"
 #include "QueryHolder.h"
@@ -108,7 +112,7 @@ bool WorldSessionFilter::Process(WorldPacket* packet)
 }
 
 /// WorldSession constructor
-WorldSession::WorldSession(uint32 id, std::string&& name, std::shared_ptr<WorldSocket> sock, AccountTypes sec, uint8 expansion, time_t mute_time, LocaleConstant locale, uint32 recruiter, bool isARecruiter) :
+WorldSession::WorldSession(uint32 id, std::string&& name, std::shared_ptr<WorldSocket> sock, AccountTypes sec, uint8 expansion, time_t mute_time, LocaleConstant locale, uint32 recruiter, bool isARecruiter, WorldSessionOrigin origin, ObjectGuid serverOriginCharacterGuid) :
     m_muteTime(mute_time),
     m_timeOutTime(0),
     AntiDOS(this),
@@ -140,8 +144,18 @@ WorldSession::WorldSession(uint32 id, std::string&& name, std::shared_ptr<WorldS
     _timeSyncClockDelta(0),
     _pendingTimeSyncRequests(),
     _gameClient(new GameClient(this)),
-    _legacyConnectionModeEnabled(sWorld->getBoolConfig(CONFIG_LEGACY_CONNECTION_MODE))
+    _legacyConnectionModeEnabled(sWorld->getBoolConfig(CONFIG_LEGACY_CONNECTION_MODE)),
+    _origin(origin),
+    _serverOriginCharacterGuid(serverOriginCharacterGuid),
+    _initializationState(WorldSessionInitializationState::Created),
+    _serverOriginExitRequested(false)
 {
+    ASSERT(IsServerOrigin() == !_serverOriginCharacterGuid.IsEmpty());
+    if (IsServerOrigin())
+    {
+        _playerbotHooks = CreatePlayerbotSessionHooks(*this);
+        ASSERT(_playerbotHooks);
+    }
     memset(m_Tutorials, 0, sizeof(m_Tutorials));
 
     _timeSyncNextCounter = 0;
@@ -186,6 +200,60 @@ WorldSession::~WorldSession()
         delete packet;
 
     LoginDatabase.PExecute("UPDATE account SET online = 0 WHERE id = %u;", GetAccountId());     // One-time query
+}
+
+void WorldSession::RequestServerOriginExit()
+{
+    ASSERT(IsServerOrigin());
+    _serverOriginExitRequested = true;
+}
+
+void WorldSession::RequestServerOriginFollow(uint32 characterGuidLow)
+{
+    ASSERT(IsServerOrigin() && characterGuidLow);
+    if (_playerbotHooks)
+        _playerbotHooks->RequestServerOriginFollow(characterGuidLow);
+}
+
+void WorldSession::RequestServerOriginHold()
+{
+    ASSERT(IsServerOrigin());
+    if (_playerbotHooks)
+        _playerbotHooks->RequestServerOriginHold();
+}
+
+void WorldSession::RequestServerOriginAttack()
+{
+    ASSERT(IsServerOrigin());
+    if (_playerbotHooks)
+        _playerbotHooks->RequestServerOriginAttack();
+}
+
+void WorldSession::RequestServerOriginCease()
+{
+    ASSERT(IsServerOrigin());
+    if (_playerbotHooks)
+        _playerbotHooks->RequestServerOriginCease();
+}
+
+void WorldSession::RequestServerOriginInstanceJoin(uint32 mapId)
+{
+    ASSERT(IsServerOrigin() && mapId);
+    if (_playerbotHooks)
+        _playerbotHooks->RequestServerOriginInstanceJoin(mapId);
+}
+
+bool WorldSession::IsSupportedServerOriginClass(uint8 playerClass)
+{
+    return PlayerbotModuleSupportsClass(playerClass);
+}
+uint32 WorldSession::GetServerOriginFollowTargetGuidLow() const
+{
+    return _playerbotHooks ? _playerbotHooks->GetFollowTargetGuidLow() : 0;
+}
+bool WorldSession::IsServerOriginAttacking() const
+{
+    return _playerbotHooks && _playerbotHooks->IsAttacking();
 }
 
 bool WorldSession::PlayerDisconnected() const
@@ -256,6 +324,11 @@ void WorldSession::SendPacket(WorldPacket const* packet, bool forced /*= false*/
 
         conIdx = packet->GetConnection();
     }
+
+    // Server-origin sessions have no packet destination. Validate the opcode and
+    // connection above, then intentionally discard only their outbound traffic.
+    if (IsServerOrigin())
+        return;
 
     if (!m_Socket[conIdx])
     {
@@ -345,7 +418,7 @@ bool WorldSession::Update(uint32 diff, PacketFilter& updater)
 
     ///- Before we process anything:
     /// If necessary, kick the player from the character select screen
-    if (IsConnectionIdle() && !HasPermission(rbac::RBAC_PERM_IGNORE_IDLE_CONNECTION))
+    if (m_Socket[CONNECTION_TYPE_REALM] && IsConnectionIdle() && !HasPermission(rbac::RBAC_PERM_IGNORE_IDLE_CONNECTION))
         m_Socket[CONNECTION_TYPE_REALM]->CloseSocket();
 
     ///- Retrieve packets from the receive queue and call the appropriate handlers
@@ -480,6 +553,8 @@ bool WorldSession::Update(uint32 diff, PacketFilter& updater)
 
     if (!updater.ProcessUnsafe()) // <=> updater is of type MapSessionFilter
     {
+        if (_playerbotHooks)
+            _playerbotHooks->UpdateMap(diff);
         // Send time sync packet every 5s.
         if (_timeSyncTimer > 0)
         {
@@ -496,6 +571,17 @@ bool WorldSession::Update(uint32 diff, PacketFilter& updater)
     //logout procedure should happen only in World::UpdateSessions() method!!!
     if (updater.ProcessUnsafe())
     {
+        if (_playerbotHooks)
+            _playerbotHooks->UpdateWorld();
+
+        if (IsServerOrigin() && _serverOriginExitRequested && m_playerLoading.IsEmpty())
+        {
+            if (GetPlayer())
+                LogoutPlayer(true);
+
+            return false;
+        }
+
         time_t currTime = GameTime::GetGameTime();
         ///- If necessary, log the player out
         if (ShouldLogOut(currTime) && m_playerLoading.IsEmpty())
@@ -523,7 +609,7 @@ bool WorldSession::Update(uint32 diff, PacketFilter& updater)
             }
         }
 
-        if (!m_Socket[CONNECTION_TYPE_REALM])
+        if (!m_Socket[CONNECTION_TYPE_REALM] && (!IsServerOrigin() || _initializationState == WorldSessionInitializationState::Failed))
             return false;                                       //Will remove this session from the world session map
     }
 
@@ -1229,10 +1315,15 @@ public:
 
 void WorldSession::InitializeSession()
 {
+    ASSERT(_initializationState == WorldSessionInitializationState::Created);
+    _initializationState = WorldSessionInitializationState::Loading;
+
     std::shared_ptr<AccountInfoQueryHolderPerRealm> realmHolder = std::make_shared<AccountInfoQueryHolderPerRealm>();
     if (!realmHolder->Initialize(GetAccountId()))
     {
-        SendAuthResponse(AUTH_SYSTEM_ERROR, false);
+        _initializationState = WorldSessionInitializationState::Failed;
+        if (!IsServerOrigin())
+            SendAuthResponse(AUTH_SYSTEM_ERROR, false);
         return;
     }
 
@@ -1246,6 +1337,18 @@ void WorldSession::InitializeSessionCallback(CharacterDatabaseQueryHolder const&
 {
     LoadAccountData(realmHolder.GetPreparedResult(AccountInfoQueryHolderPerRealm::GLOBAL_ACCOUNT_DATA), GLOBAL_CACHE_MASK);
     LoadTutorialsData(realmHolder.GetPreparedResult(AccountInfoQueryHolderPerRealm::TUTORIALS));
+
+    _initializationState = WorldSessionInitializationState::Ready;
+
+    if (IsServerOrigin())
+    {
+        if (!BeginServerOriginCharacterLogin())
+        {
+            _initializationState = WorldSessionInitializationState::Failed;
+            RequestServerOriginExit();
+        }
+        return;
+    }
 
     if (!m_inQueue)
         SendAuthResponse(AUTH_OK, false);

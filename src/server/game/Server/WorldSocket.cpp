@@ -717,6 +717,21 @@ void WorldSocket::HandleAuthSessionCallback(std::shared_ptr<WorldPackets::Auth::
         return;
     }
 
+    // PB-00 uses dedicated accounts. Reject a human client before allocating
+    // a client WorldSession so it can never replace or race a server-origin
+    // session. The world-thread AddSession_ guard remains defense in depth.
+    if (sWorld->getBoolConfig(CONFIG_PLAYERBOTS_DEV_ENABLED) &&
+        (account.Id == sWorld->getIntConfig(CONFIG_PLAYERBOTS_DEV_ACCOUNT_ID) ||
+         (sWorld->getIntConfig(CONFIG_PLAYERBOTS_DEV_ACCOUNT_ID_2) && account.Id == sWorld->getIntConfig(CONFIG_PLAYERBOTS_DEV_ACCOUNT_ID_2)) ||
+         (sWorld->getIntConfig(CONFIG_PLAYERBOTS_DEV_ACCOUNT_ID_3) && account.Id == sWorld->getIntConfig(CONFIG_PLAYERBOTS_DEV_ACCOUNT_ID_3)) ||
+         (sWorld->getIntConfig(CONFIG_PLAYERBOTS_DEV_ACCOUNT_ID_4) && account.Id == sWorld->getIntConfig(CONFIG_PLAYERBOTS_DEV_ACCOUNT_ID_4))))
+    {
+        SendAuthResponseError(AUTH_ALREADY_ONLINE);
+        TC_LOG_ERROR("network", "WorldSocket::HandleAuthSession: Account %u is reserved for the enabled PB-00 lifecycle session.", account.Id);
+        DelayedCloseSocket();
+        return;
+    }
+
     TC_LOG_DEBUG("network", "WorldSocket::HandleAuthSession: Client '%s' authenticated successfully from %s.", authSession->Account.c_str(), address.c_str());
 
     // Update the last_ip in the database as it was successful for login
@@ -730,7 +745,7 @@ void WorldSocket::HandleAuthSessionCallback(std::shared_ptr<WorldPackets::Auth::
 
     _authed = true;
     _worldSession = new WorldSession(account.Id, std::move(authSession->Account), shared_from_this(), account.Security,
-        account.Expansion, mutetime, account.Locale, account.Recruiter, account.IsRecruiter);
+        account.Expansion, mutetime, account.Locale, account.Recruiter, account.IsRecruiter, WorldSessionOrigin::Client);
     _worldSession->ReadAddonsInfo(authSession->AddonInfo);
 
     // Initialize Warden system only if it is enabled by config

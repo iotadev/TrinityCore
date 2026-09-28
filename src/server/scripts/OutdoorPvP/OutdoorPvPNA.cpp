@@ -52,8 +52,11 @@ void OutdoorPvPNA::OnGameObjectCreate(GameObject* go)
     switch (go->GetEntry())
     {
         case 182210:
-            m_obj->m_capturePointSpawnId = go->GetSpawnId();
-            AddCapturePoint(m_obj.get());
+            if (m_unregisteredObj)
+            {
+                m_obj->m_capturePointSpawnId = go->GetSpawnId();
+                AddCapturePoint(m_unregisteredObj.release());
+            }
             break;
     }
 
@@ -145,7 +148,8 @@ bool OutdoorPvPNA::SetupOutdoorPvP()
     RegisterZone(NA_BUFF_ZONE);
 
     // halaa
-    m_obj = std::make_unique<OPvPCapturePointNA>(this);
+    m_unregisteredObj = std::make_unique<OPvPCapturePointNA>(this);
+    m_obj = m_unregisteredObj.get();
 
     return true;
 }

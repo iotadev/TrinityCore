@@ -32,6 +32,7 @@
 
 #include <array>
 #include <atomic>
+#include <chrono>
 #include <list>
 #include <map>
 #include <unordered_map>
@@ -187,6 +188,8 @@ enum WorldBoolConfigs : uint8
     CONFIG_RESPAWN_DYNAMIC_ESCORTNPC,
     CONFIG_CACHE_DATA_QUERIES,
     CONFIG_LEGACY_CONNECTION_MODE,
+    CONFIG_PLAYERBOTS_DEV_ENABLED,
+    CONFIG_PLAYERBOTS_DEV_GREETING_ENABLED,
     BOOL_CONFIG_VALUE_COUNT
 };
 
@@ -423,6 +426,14 @@ enum WorldIntConfigs : uint8
     CONFIG_RESPAWN_GUIDWARNING_FREQUENCY,
     CONFIG_RATED_BATTLEGROUND_ENABLE,
     CONFIG_PENDING_MOVE_CHANGES_TIMEOUT,
+    CONFIG_PLAYERBOTS_DEV_ACCOUNT_ID,
+    CONFIG_PLAYERBOTS_DEV_CHARACTER_GUID,
+    CONFIG_PLAYERBOTS_DEV_ACCOUNT_ID_2,
+    CONFIG_PLAYERBOTS_DEV_CHARACTER_GUID_2,
+    CONFIG_PLAYERBOTS_DEV_ACCOUNT_ID_3,
+    CONFIG_PLAYERBOTS_DEV_CHARACTER_GUID_3,
+    CONFIG_PLAYERBOTS_DEV_ACCOUNT_ID_4,
+    CONFIG_PLAYERBOTS_DEV_CHARACTER_GUID_4,
     INT_CONFIG_VALUE_COUNT
 };
 
@@ -601,6 +612,12 @@ class TC_GAME_API World
         static std::atomic<uint32> m_worldLoopCounter;
 
         WorldSession* FindSession(uint32 id) const;
+        // World-thread-only development entry points for four explicit, allowlisted Warriors.
+        bool TryStartDevPlayerbot(bool second = false);
+        bool RequestStopDevPlayerbot(bool second = false);
+        bool TryStartDevPlayerbotSlot(uint8 slot);
+        bool RequestStopDevPlayerbotSlot(uint8 slot);
+        WorldSession* FindDevPlayerbotSlot(uint8 slot) const;
         void AddSession(WorldSession* s);
         void AddInstanceSocket(std::weak_ptr<WorldSocket> sock, uint64 connectToKey);
         void SendAutoBroadcast();
@@ -842,6 +859,8 @@ class TC_GAME_API World
         static uint8 m_ExitCode;
         uint32 m_ShutdownTimer;
         uint32 m_ShutdownMask;
+        std::chrono::steady_clock::time_point m_devPlayerbotDrainDeadline{};
+        bool RequestStopAllDevPlayerbots();
 
         uint32 m_CleaningFlags;
 

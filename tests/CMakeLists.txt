@@ -13,11 +13,15 @@ CollectSourceFiles(
   COMMON_SOURCES
 )
 
-add_executable(tests-common ${COMMON_SOURCES})
+get_property(MODULE_TEST_SOURCES GLOBAL PROPERTY TC_MODULE_TEST_SOURCES)
+get_property(MODULE_TEST_LIBRARIES GLOBAL PROPERTY TC_MODULE_TEST_LIBRARIES)
+add_executable(tests-common ${COMMON_SOURCES} ${MODULE_TEST_SOURCES})
 
 target_link_libraries(tests-common
   PRIVATE
+    trinity-core-interface
     common
+    ${MODULE_TEST_LIBRARIES}
     Catch2::Catch2)
 
 catch_discover_tests(tests-common)

@@ -172,7 +172,9 @@ class OutdoorPvPNA : public OutdoorPvP
         void HandleKillImpl(Player* player, Unit* killed) override;
 
     private:
-        std::unique_ptr<OPvPCapturePointNA> m_obj;
+        // Own until the capture-point game object appears; then the base map owns it.
+        std::unique_ptr<OPvPCapturePointNA> m_unregisteredObj;
+        OPvPCapturePointNA* m_obj = nullptr;
 };
 }
 
