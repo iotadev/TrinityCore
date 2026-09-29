@@ -1,5 +1,11 @@
 # Engine integration: lead-verified starting points
 
+Historical source map from 2026-09-26. The scheduling/context kernel and bounded
+class routes described as future work below have since been integrated. Use
+PLAYERBOTS_PORT_ROADMAP.md and PLAYERBOTS_WORK_PACKETS.md for current work;
+retain this file as the original dependency/lifetime analysis. Full donor state
+and packet-event coverage remains incomplete.
+
 Date: 2026-09-26. Donor mod-playerbots
 `8827dd6fcbb2bb25988787a40f06fc93daf8e02d`. These are inspected source facts,
 not a dependency-complete port or runtime implementation.

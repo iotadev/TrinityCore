@@ -222,6 +222,20 @@ void WorldSession::RequestServerOriginHold()
         _playerbotHooks->RequestServerOriginHold();
 }
 
+void WorldSession::RequestPartyControllerFollow(uint32 characterGuidLow)
+{
+    ASSERT(IsServerOrigin() && characterGuidLow);
+    if (_playerbotHooks)
+        _playerbotHooks->RequestPartyControllerFollow(characterGuidLow);
+}
+
+void WorldSession::RequestPartyControllerHold()
+{
+    ASSERT(IsServerOrigin());
+    if (_playerbotHooks)
+        _playerbotHooks->RequestPartyControllerHold();
+}
+
 void WorldSession::RequestServerOriginAttack()
 {
     ASSERT(IsServerOrigin());
@@ -250,6 +264,10 @@ bool WorldSession::IsSupportedServerOriginClass(uint8 playerClass)
 uint32 WorldSession::GetServerOriginFollowTargetGuidLow() const
 {
     return _playerbotHooks ? _playerbotHooks->GetFollowTargetGuidLow() : 0;
+}
+uint32 WorldSession::GetServerOriginPartyControllerGuidLow() const
+{
+    return _playerbotHooks ? _playerbotHooks->GetPartyControllerGuidLow() : 0;
 }
 bool WorldSession::IsServerOriginAttacking() const
 {

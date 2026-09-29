@@ -36,6 +36,7 @@
 #include <list>
 #include <map>
 #include <unordered_map>
+#include <vector>
 
 class Player;
 class WorldPacket;
@@ -618,6 +619,10 @@ class TC_GAME_API World
         bool TryStartDevPlayerbotSlot(uint8 slot);
         bool RequestStopDevPlayerbotSlot(uint8 slot);
         WorldSession* FindDevPlayerbotSlot(uint8 slot) const;
+        // World-thread-only lookup for an already admitted server-origin bot.
+        WorldSession* FindServerOriginPlayerbot(ObjectGuid characterGuid) const;
+        // Borrowed sessions; consume on the world thread without retaining them.
+        std::vector<WorldSession*> GetServerOriginPlayerbotSessions() const;
         void AddSession(WorldSession* s);
         void AddInstanceSocket(std::weak_ptr<WorldSocket> sock, uint64 connectToKey);
         void SendAutoBroadcast();

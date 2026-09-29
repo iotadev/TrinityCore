@@ -12,21 +12,21 @@ Historical evidence directory names identify past runs; they are not fixtures
 distributed with the repository. Reproduction instructions must specify required
 inputs and allow developers to supply their own environment paths.
 
-For current checkout instructions and compatible module revisions, start with
-the [core README](../../README.md) and [publication status](core/PUBLISHING_CHECKLIST.md).
-Dated reports and plans describe their recorded milestones; statements such as
-"not yet imported" or "not published" in those reports are historical, not the
-current feature list. Local development commit IDs and ignored evidence paths
-are archival references and need not be available in a fresh public clone.
+Start with the [core README](../../README.md) for compatible module revisions,
+then the roadmap and implementation handoff below for current development.
+Dated reports retain earlier outcomes; their old "pending" statements apply to
+those revisions. Local commit IDs and ignored evidence are archival references
+and need not exist in a fresh public clone.
 
 ## Playerbots
 
 - [Roadmap](playerbots/PLAYERBOTS_PORT_ROADMAP.md)
 - [Development history](playerbots/PLAYERBOTS_DEV.md)
 - [Engine integration notes](playerbots/PLAYERBOTS_ENGINE_INTEGRATION_NOTES.md)
-- [Work packets](playerbots/PLAYERBOTS_WORK_PACKETS.md)
+- [Implementation handoff and work packets](playerbots/PLAYERBOTS_WORK_PACKETS.md)
 - [Repository split plan](playerbots/PLAYERBOTS_REPOSITORY_PLAN.md)
 - [Low-level party milestone](playerbots/PLAYERBOTS_PARTY_MILESTONE.md)
+- [2026-09-29 mixed-party release check](playerbots/NEXT_MIXED_PARTY_TEST.md)
 - Validation: [lifecycle](playerbots/PLAYERBOTS_LIFECYCLE_VALIDATION.md),
   [harness](playerbots/PLAYERBOTS_HARNESS_VALIDATION.md),
   [module foundation](playerbots/PLAYERBOTS_MODULE_VALIDATION.md)
@@ -46,9 +46,11 @@ are archival references and need not be available in a fresh public clone.
 - [Baseline validation](core/VALIDATION.md)
 - [Runtime test instructions](core/RUNTIME_TESTING.md)
 - [Publication privacy audit](core/PUBLICATION_AUDIT.md)
-- [First public snapshot checklist](core/PUBLISHING_CHECKLIST.md)
+- [Milestone publication checklist](core/PUBLISHING_CHECKLIST.md)
 
-Executable scripts remain in [contrib/local](../../contrib/local/).
+Maintained executable scripts remain in [contrib/local](../../contrib/local/).
+Some historical validation notes also name local-only test harnesses or ignored
+evidence that are not distributed with a core-only checkout.
 Playerbots module documentation remains with its separate source checkout at
 `modules/mod-playerbots` (including its README, porting provenance, and donor
 authorship). Those files are not part of a core-only clone.

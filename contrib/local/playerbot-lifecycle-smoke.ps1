@@ -1,6 +1,6 @@
 param([Parameter(Mandatory)][ValidateNotNullOrEmpty()][string]$Seed,
     [Parameter(Mandatory)][ValidateNotNullOrEmpty()][string]$MySqlHome,
-    [string]$BuildDirectory = 'build/bin/RelWithDebInfo', [string]$DataDirectory, [switch]$SkipBot, [switch]$ModuleConfig,
+    [string]$BuildDirectory = 'build/bin/RelWithDebInfo', [string]$DataDirectory, [string]$ClassDumpDirectory, [switch]$SkipBot, [switch]$ModuleConfig,
     [switch]$Interactive,
     [switch]$CheckRosterOnly,
     [ValidateRange(0, 600)][int]$IdleSeconds = 125,
@@ -10,6 +10,7 @@ param([Parameter(Mandatory)][ValidateNotNullOrEmpty()][string]$Seed,
     [switch]$CheckAdmissionMatrix, [switch]$CheckPersistence,
     [switch]$CheckPendingLoad, [switch]$CheckDrainTimeout,
     [switch]$CheckClientCollision, [switch]$CheckFollow, [switch]$CheckCombat, [switch]$CheckTwoBots, [switch]$CheckFullParty, [switch]$ReuseFullPartyFixture, [switch]$PrepareClassFixture, [switch]$MixedParty, [switch]$WaitForStrike, [switch]$WaitForTargetDeath, [switch]$WaitForLeash, [switch]$ObserveFollow, [switch]$PlayAssist, [switch]$CheckDungeonJoin,
+    [switch]$EngineWarriorBuff, [switch]$EngineWarriorCombat, [switch]$EngineMageCombat, [switch]$EnginePriestHeal,
     [ValidateSet('account_tutorial','character_aura')][string]$PendingTable = 'account_tutorial')
 
 # PB-00/PB-01/PB-02 proofs against a COPY of a disposable, cleanly stopped database.
@@ -17,6 +18,7 @@ param([Parameter(Mandatory)][ValidateNotNullOrEmpty()][string]$Seed,
 $ErrorActionPreference = 'Stop'
 if ($Interactive -and -not $CheckFullParty) { throw '-Interactive currently requires -CheckFullParty.' }
 if ($MixedParty -and -not $CheckFullParty) { throw '-MixedParty requires -CheckFullParty.' }
+if ($ClassDumpDirectory -and (-not $MixedParty -or $ReuseFullPartyFixture)) { throw '-ClassDumpDirectory requires -MixedParty without -ReuseFullPartyFixture.' }
 if ($CheckRosterOnly -and (-not $CheckFullParty -or $Interactive)) { throw '-CheckRosterOnly requires -CheckFullParty without -Interactive.' }
 $repo = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 . (Join-Path $PSScriptRoot 'test-environment.ps1')
@@ -27,6 +29,20 @@ Assert-TestFiles $built @('worldserver.exe') 'BuildDirectory'
 if ($DataDirectory) { $gameData = Resolve-TestDirectory $DataDirectory $repo 'DataDirectory' }
 $allowPlayerbotSeed = $CheckCombat -or $SkipBot -or $CheckTwoBots -or $CheckFullParty -or $PrepareClassFixture
 $seedPath = Resolve-TestSeed $Seed $repo -AllowPlayerbot:$allowPlayerbotSeed
+if ($ClassDumpDirectory) {
+    $classDumpSource = Resolve-TestDirectory $ClassDumpDirectory $repo 'ClassDumpDirectory'
+    $buildRoot = [IO.Path]::GetFullPath((Join-Path $repo 'build'))
+    if (-not (Split-Path $classDumpSource -Parent).Equals($buildRoot, [StringComparison]::OrdinalIgnoreCase) -or
+        -not (Split-Path $classDumpSource -Leaf).StartsWith('playerbot-smoke-', [StringComparison]::OrdinalIgnoreCase)) {
+        throw 'ClassDumpDirectory must be a disposable playerbot-smoke directory directly under this repository build directory.'
+    }
+    if ((Get-Item -LiteralPath $classDumpSource).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'ClassDumpDirectory must not be a link.' }
+    Assert-TestFiles $classDumpSource @('mage-template.dump','priest-template.dump') 'ClassDumpDirectory'
+    foreach ($dumpName in @('mage-template.dump','priest-template.dump')) {
+        $dump = Get-Item -LiteralPath (Join-Path $classDumpSource $dumpName)
+        if ($dump.Attributes -band [IO.FileAttributes]::ReparsePoint -or $dump.Length -eq 0) { throw "Class dump $dumpName must be a nonempty regular file." }
+    }
+}
 if ($CheckClientCollision -or $CheckFollow -or $CheckCombat -or $CheckFullParty -or $PrepareClassFixture) {
     Assert-TestFiles $built @('authserver.exe') 'BuildDirectory'
     Assert-TestFiles $seedPath @('authserver.conf') 'Seed'
@@ -54,6 +70,10 @@ if ($WaitForLeash -and -not $CheckCombat) { throw '-WaitForLeash requires -Check
 if ($ObserveFollow -and -not $CheckCombat) { throw '-ObserveFollow requires -CheckCombat.' }
 if ($PlayAssist -and -not $CheckCombat) { throw '-PlayAssist requires -CheckCombat.' }
 if ($CheckDungeonJoin -and (-not $CheckCombat -or $BotLevel -ne 20)) { throw '-CheckDungeonJoin requires -CheckCombat -BotLevel 20.' }
+if ($EngineWarriorBuff -and (-not $ModuleConfig -or -not $CheckCombat -or -not $PlayAssist -or $BotLevel -ne 20)) { throw '-EngineWarriorBuff requires -ModuleConfig -CheckCombat -PlayAssist -BotLevel 20.' }
+if (($EngineWarriorCombat -or $EngineMageCombat -or $EnginePriestHeal) -and (-not $ModuleConfig -or -not $CheckFullParty -or -not $MixedParty)) {
+    throw 'Warrior/Mage/Priest combat engine checks require -ModuleConfig -CheckFullParty -MixedParty.'
+}
 if ($BotLevel -ne 1 -and (-not $CheckCombat -or (-not $PlayAssist -and -not $CheckDungeonJoin))) { throw '-BotLevel 7 or 20 requires -CheckCombat and a play mode.' }
 if ([int]$WaitForStrike.IsPresent + [int]$WaitForTargetDeath.IsPresent + [int]$WaitForLeash.IsPresent + [int]$ObserveFollow.IsPresent + [int]$PlayAssist.IsPresent + [int]$CheckDungeonJoin.IsPresent -gt 1) { throw 'Choose one combat wait mode.' }
 $stage = Join-Path $repo ('build/playerbot-smoke-' + (Get-Date -Format 'yyyyMMdd-HHmmss'))
@@ -155,7 +175,12 @@ $credential = Read-TestCredentials $seedPath
 try {
     New-Item -ItemType Directory -Path $stage | Out-Null
     # Preserve the private evidence directory's access boundary on the clone.
-    Set-Acl -LiteralPath $stage -AclObject (Get-Acl -LiteralPath $seedPath)
+    # The caller may own the new directory while an older seed has a different
+    # owner; copying that owner would require a privilege we do not need.
+    $stageAcl = Get-Acl -LiteralPath $stage
+    $seedAcl = Get-Acl -LiteralPath $seedPath
+    $seedAcl.SetOwner($stageAcl.GetOwner([Security.Principal.NTAccount]))
+    Set-Acl -LiteralPath $stage -AclObject $seedAcl
     Write-Host "TEST DIRECTORY: $stage"
     Copy-Item -LiteralPath (Join-Path $seedPath 'mysql-data') -Destination (Join-Path $stage 'mysql-data') -Recurse
     Copy-Item -LiteralPath $credentialPath -Destination (Join-Path $stage 'test-db-credentials.json')
@@ -246,7 +271,7 @@ try {
     if ($CheckFullParty) {
         $human = Invoke-TestSql "SELECT a.id, c.guid, c.class, c.online FROM auth.account a JOIN characters.characters c ON c.account=a.id WHERE a.username='PB01HUMAN' AND c.name='Test';"
         $humanFields = $human -split "`t"
-        if ($humanFields.Count -ne 4 -or $humanFields[2] -ne '1' -or $humanFields[3] -ne '0') { throw "Full-party fixture needs offline human Warrior Test; found: $human" }
+        if ($humanFields.Count -ne 4 -or $humanFields[3] -ne '0') { throw "Full-party fixture needs an offline human character named Test; found: $human" }
         $humanGuid = [uint32]$humanFields[1]
         if ((Invoke-TestSql "SELECT COUNT(*) FROM characters.group_member WHERE memberGuid IN ($characterGuid,$humanGuid);") -ne '0') { throw 'Full-party seed already has party membership; use a pre-party disposable seed.' }
         $botHomebind = Invoke-TestSql "SELECT mapId, posX, posY, posZ FROM characters.character_homebind WHERE guid=$characterGuid;"
@@ -274,15 +299,22 @@ try {
             $botSpecs = @(@(2,'PB01BOT2','Testtwo',1), @(3,'PB01MAGE','Botmage',8), @(4,'PB01PRIEST','Botpriest',5))
             foreach ($classSource in $(if ($ReuseFullPartyFixture) { @() } else { @(@('Testmage',8,'mage-template.dump'), @('Testpriest',5,'priest-template.dump')) })) {
                 $sourceName = $classSource[0]; $sourceClass = $classSource[1]; $dumpName = $classSource[2]
-                if ((Invoke-TestSql "SELECT COUNT(*) FROM characters.characters c JOIN auth.account a ON a.id=c.account WHERE a.username='PB01HUMAN' AND c.name='$sourceName' AND c.class=$sourceClass AND c.online=0;") -ne '1') { throw "Missing saved class fixture $sourceName." }
-                Send-WorldCommand "pdump write $dumpName $sourceName"
-                Wait-For { (Test-Path (Join-Path $stage $dumpName)) -and (Get-Item (Join-Path $stage $dumpName)).Length -gt 0 } 30 "class dump $sourceName"
+                if ($ClassDumpDirectory) {
+                    Copy-Item -LiteralPath (Join-Path $classDumpSource $dumpName) -Destination (Join-Path $stage $dumpName)
+                }
+                else {
+                    if ((Invoke-TestSql "SELECT COUNT(*) FROM characters.characters c JOIN auth.account a ON a.id=c.account WHERE a.username='PB01HUMAN' AND c.name='$sourceName' AND c.class=$sourceClass AND c.online=0;") -ne '1') { throw "Missing saved class fixture $sourceName." }
+                    Send-WorldCommand "pdump write $dumpName $sourceName"
+                    Wait-For { (Test-Path (Join-Path $stage $dumpName)) -and (Get-Item (Join-Path $stage $dumpName)).Length -gt 0 } 30 "class dump $sourceName"
+                }
             }
         }
         foreach ($botSpec in $botSpecs) {
             $slot = [int]$botSpec[0]; $botAccountName = [string]$botSpec[1]; $botName = [string]$botSpec[2]
             $expectedClass = [int]$botSpec[3]
-            if (-not $ReuseFullPartyFixture -and -not ($MixedParty -and $slot -eq 2)) {
+            $reuseSecond = $MixedParty -and $slot -eq 2 -and
+                (Invoke-TestSql "SELECT COUNT(*) FROM auth.account a JOIN characters.characters c ON c.account=a.id WHERE a.username='PB01BOT2' AND c.name='Testtwo' AND c.class=1 AND c.online=0;") -eq '1'
+            if (-not $ReuseFullPartyFixture -and -not $reuseSecond) {
                 if ((Invoke-TestSql "SELECT COUNT(*) FROM auth.account WHERE username='$botAccountName';") -ne '0') { throw "Disposable bot account $botAccountName already exists." }
                 Send-WorldCommand "account create $botAccountName PB01local!"
                 Wait-For { (Invoke-TestSql "SELECT COUNT(*) FROM auth.account WHERE username='$botAccountName';") -eq '1' } 30 "bot account $slot creation"
@@ -355,6 +387,22 @@ try {
     # A prior disposable stage can already contain generated settings.
     $config = [regex]::Replace($config, '(?m)^Playerbots\.Dev\.(Enabled|AccountId[2-4]?|CharacterGuid[2-4]?)\s*=.*\r?\n?', '')
     $config += "`r`nPlayerbots.Dev.Enabled = $([int](-not $PrepareClassFixture))`r`nPlayerbots.Dev.AccountId = $accountId`r`nPlayerbots.Dev.CharacterGuid = $characterGuid`r`n"
+    if ($EngineWarriorBuff) {
+        $config = [regex]::Replace($config, '(?m)^Playerbots\.Dev\.EngineWarriorBuff\s*=.*\r?\n?', '')
+        $config += "Playerbots.Dev.EngineWarriorBuff = 1`r`n"
+    }
+    if ($EngineWarriorCombat) {
+        $config = [regex]::Replace($config, '(?m)^Playerbots\.Dev\.EngineWarriorCombat\s*=.*\r?\n?', '')
+        $config += "Playerbots.Dev.EngineWarriorCombat = 1`r`n"
+    }
+    if ($EngineMageCombat) {
+        $config = [regex]::Replace($config, '(?m)^Playerbots\.Dev\.EngineMageCombat\s*=.*\r?\n?', '')
+        $config += "Playerbots.Dev.EngineMageCombat = 1`r`n"
+    }
+    if ($EnginePriestHeal) {
+        $config = [regex]::Replace($config, '(?m)^Playerbots\.Dev\.EnginePriestHeal\s*=.*\r?\n?', '')
+        $config += "Playerbots.Dev.EnginePriestHeal = 1`r`n"
+    }
     if ($CheckTwoBots) { $config += "Playerbots.Dev.AccountId2 = $secondAccountId`r`nPlayerbots.Dev.CharacterGuid2 = $secondGuid`r`n" }
     if ($CheckFullParty) {
         foreach ($bot in $fullPartyBots | Where-Object Slot -gt 1) {
@@ -434,6 +482,7 @@ try {
             Wait-For { (Invoke-TestSql "SELECT online FROM characters.characters WHERE guid=$humanGuid;") -eq '0' } 300 'human logout after auto-assist play'
             $assisted = Select-String -LiteralPath $serverLog -SimpleMatch 'PB-02: Testone auto-assisting' -Quiet
             $battleShoutStarted = $BotLevel -eq 20 -and (Select-String -LiteralPath $serverLog -SimpleMatch 'PB-02: Testone began Battle Shout on Testone' -Quiet)
+            $engineRouted = $EngineWarriorBuff -and (Select-String -LiteralPath $serverLog -SimpleMatch 'PB-ENGINE: Testone Warrior buff routed through engine' -Quiet)
             Send-WorldCommand 'server playerbotdev stop'
             Wait-For { (Invoke-TestSql "SELECT online FROM characters.characters WHERE guid=$characterGuid;") -eq '0' } 60 'bot logout'
             Send-WorldCommand 'server shutdown 0'
@@ -441,6 +490,7 @@ try {
             if ($worldWorker.Process.ExitCode -ne 0) { throw "Auto-assist worldserver exited with $($worldWorker.Process.ExitCode)." }
             if (-not $assisted) { throw 'No accepted auto-assist engagement was recorded during the play session.' }
             if ($BotLevel -eq 20 -and -not $battleShoutStarted) { throw 'No accepted Battle Shout cast was recorded during the level-20 play session.' }
+            if ($EngineWarriorBuff -and -not $engineRouted) { throw 'No Warrior engine-buff routing was recorded during the play session.' }
             Write-Host 'PB-02 auto-assist engagement and clean shutdown passed; visual behavior still requires player confirmation.'
             return
         }
@@ -522,7 +572,7 @@ try {
         Wait-For { @(Select-String -LiteralPath $serverLog -SimpleMatch 'PB-01: Testone following').Count -ge 2 } 20 'follow resumed'
         Write-Host 'FOLLOW RESUMED: log out of the human character now.'
         Wait-For { (Invoke-TestSql "SELECT online FROM characters.characters WHERE guid=$humanGuid;") -eq '0' } 180 'human logout'
-        Wait-For { (Select-String -LiteralPath $serverLog -SimpleMatch 'PB-01: follow target left bot map or died; holding' -Quiet) } 20 'automatic hold on logout'
+        Wait-For { (Select-String -LiteralPath $serverLog -SimpleMatch 'PB-01: follow target left bot map; holding' -Quiet) } 20 'automatic hold on logout'
         Send-WorldCommand 'server playerbotdev status'
         Send-WorldCommand 'server playerbotdev stop'
         Wait-For { (Invoke-TestSql "SELECT online FROM characters.characters WHERE guid=$characterGuid;") -eq '0' } 60 'bot logout'
@@ -731,7 +781,7 @@ try {
             Write-Host 'Four-bot roster readiness, outdoor fixture normalization, save/logout and shutdown passed. No client gameplay was tested.'
             return
         }
-        Write-Host 'FULL PARTY READY: log into Test as PB01HUMAN / PB01local! on the Test realm.'
+        Write-Host 'FULL PARTY READY: log into Test on the disposable Test realm using its fixture account credentials.'
         if ($Interactive) { Write-Host "INTERACTIVE: human steps have no deadline. Log out when finished; to stop at any step create $stage/stop.request." }
         Wait-ForHuman { (Invoke-TestSql "SELECT online, map FROM characters.characters WHERE guid=$humanGuid;") -eq "1$([char]9)530" } 600 'human Test on outdoor map 530'
         if (-not $MixedParty) {
@@ -753,7 +803,10 @@ try {
             $enteredLine = "PB-PARTY: $($bot.Name) entered dungeon map 389 instance"
             Wait-For { (Select-String -LiteralPath $serverLog -SimpleMatch $enteredLine -Quiet) } 90 "bot slot $($bot.Slot) dungeon entry"
         }
-        if ($MixedParty) { Write-Host 'MIXED PARTY IN DUNGEON: make several pulls, allow some real damage to exercise healing, then log out. No forced wipe needed.' }
+        if ($MixedParty) {
+            Write-Host 'MIXED PARTY IN DUNGEON: make a few normal pulls; observe Warrior threat, Mage damage and Priest healing.'
+            Write-Host 'If convenient, observe one party-member death/resurrection and one party removal/re-invite. No forced wipe is required. Log out when finished.'
+        }
         else { Write-Host 'FULL PARTY IN DUNGEON: make several normal pulls, then deliberately push into a wipe or death. Observe follow, assist, and what each bot does after death.' }
         if ($Interactive) {
             Write-Host 'Free play: observe the party, then log out. Combat/death evidence is optional in this mode.'
@@ -768,6 +821,9 @@ try {
             }
             foreach ($pattern in @('PB-02: Botmage began (Frostbolt|Fireball|Fire Blast|Frost Nova)', 'PB-02: Botpriest began (Flash Heal|Heal|Renew|Power Word: Shield)', 'PB-02: Botpriest began Power Word: Fortitude')) {
                 Write-Host "Class evidence [$pattern]: $(@(Select-String -LiteralPath $serverLog -Pattern $pattern).Count) accepted casts"
+            }
+            foreach ($pattern in @('PB-ENGINE: Testone Warrior combat routed', 'PB-ENGINE: Botmage Mage combat routed', 'PB-ENGINE: Botpriest Priest healing routed', 'PB-02: Testone began (Taunt|Shield Slam|Victory Rush|Rend|Strike)', 'PB-02: Botpriest began Resurrection', 'PB-RECOVERY: .* accepted resurrection')) {
+                Write-Host "Engine/recovery evidence [$pattern]: $(@(Select-String -LiteralPath $serverLog -Pattern $pattern).Count) log matches"
             }
         }
         elseif (-not $Interactive) {

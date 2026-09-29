@@ -1,73 +1,36 @@
-# First public source snapshot: status and checks
+# Milestone publication checklist
 
-The target is the
-Cataclysm 4.3.4.15595 TrinityCore fork. AHBot and Playerbots are optional static
-modules with narrow core integration seams. Both now have separate local Git
-repositories ignored by the core checkout. The intended first public snapshot
-is a coordinated three-repository set: core, Playerbots, and AHBot. No client,
-extracted game data, database, credentials, build products or local evidence
-bundles belong in any outgoing repository.
+Updated 2026-09-29. Initial coordinated snapshots already exist. Use this
+checklist when publishing subsequent core/module work; repository boundaries
+are documented in [the repository plan](../playerbots/PLAYERBOTS_REPOSITORY_PLAN.md).
 
-## Current boundary (2026-09-28)
+1. Identify the tested core and module contents. Review pending changes in each
+   repository separately and leave unrelated runtime assets out.
+2. Fetch the intended publication branches. Use their current history as the
+   parent of the new commits. Preserve existing fixes and documentation;
+   private development ancestry is not an outgoing dependency.
+3. Verify the destination and configured author/committer identity. The core
+   publication destination is `iotadev/TrinityCore`, not its upstream project.
+   Never resolve a mismatch by an unreviewed force push.
+4. Review actual outgoing files and new history for personal paths/identities,
+   credentials, generated data, missing source attribution and unsupported
+   readiness claims. Pattern scans complement review.
+5. Run checks proportionate to the change. For new core/module code, verify the
+   matching build and affected tests. Recheck disabled-module boundaries when
+   changed. Use one representative client session for integrated gameplay work;
+   do not repeat it for documentation edits or every individual spell.
+6. Commit the module and record that exact revision in the core README. Check
+   documentation links, configuration names/defaults and the current roadmap.
+   Keep dated validation notes clearly historical.
+7. Push the module, then the matching core revision, using ordinary fast-forward
+   updates. Verify both remote heads and the recorded pairing.
 
-- Reviewed source snapshots have been pushed to `iotadev/TrinityCore`,
-  `iotadev/cata-playerbots`, and `iotadev/cata-ahbot`. Source upload and public
-  repository visibility are separate steps. The core README is the authority
-  for matching module revisions; GitHub shows each repository's visibility.
-- The core publication branch was prepared in isolation from the development
-  tree and retains upstream history, including the fork's existing StormLib
-  fix. Playerbots starts from a new reviewed source snapshot rather than its
-  earlier local commit history. The module sources live in independent checkouts at
-  `modules/mod-playerbots` and `modules/mod-ahbot`; neither is included in a
-  core clone. All three are still being developed.
-- Older local development commits and evidence bundles are outside the
-  publication branch. See [the historical privacy audit](PUBLICATION_AUDIT.md).
-- AHBot-enabled and AHBot-disabled worldserver builds passed after the module
-  move. A disposable replay loaded its active module config, made 12/12 seller
-  listings, exercised both relocated ratio commands, and bought one of two
-  player auctions under the buyer action cap. Earlier Playerbots build/lifecycle
-  checks used the matching development module. These are checkpoint results, not
-  tests of the final publication snapshot or all gameplay behavior.
-- From the isolated publication candidate, `worldserver` and `tests-common`
-  build in RelWithDebInfo with neither module, with each module individually,
-  and with both modules. CTest passed
-  19/19 core-only, 65/65 Playerbots-only, 19/19 AHBot-only, and 65/65 combined.
-  The later Playerbots history recreation preserved its exact Git file tree.
-  Subsequent publication edits changed documentation and ignore rules only.
-  The final core rebase retained an existing StormLib CMake definition change;
-  that rebased combination has not received a new build-matrix run.
-- A disposable runtime replay of the final published combination and an in-game
-  test of the opt-in Warrior engine path remain pending. A later AHBot replay
-  attempt stopped during fixture preparation and supplied no new runtime proof.
-  Publication is an experimental source checkpoint, not a production-readiness
-  or complete dungeon-clear claim.
+Client files, extracted game data, copied databases, live configuration, logs,
+private history bundles and worker snapshots are not release assets. Portable
+test/build script source can be published after review; its required local
+fixtures and dependency paths must remain explicit.
 
-## Checks for publication and subsequent updates
-
-1. Freeze a named checkpoint across all three repositories. Record the exact
-   core, Playerbots, and AHBot commits intended to work together; document where
-   each module should be cloned in a fresh core checkout.
-2. Review the AHBot source snapshot, its retained notices and attribution, and
-   the Playerbots donor provenance before publication.
-3. Construct an isolated publication branch from the upstream base or sanitize
-   the local commit range. Preserve upstream history and donor authorship, but
-   do not publish the older local snapshots containing workstation details.
-   Review the outgoing commit author/committer identity as well as file content.
-4. Review the exact outgoing file list and diff for secrets, private paths,
-   generated data, unlicensed or unattributed imports, and misleading readiness
-   claims. A pattern scan is an aid, not a substitute for this review.
-5. From a fresh candidate checkout, clone both modules at the recorded commits.
-   Build core-only, each module individually, and the two together; run available
-   tests when executable changes justify them. Record which source revisions
-   were tested and distinguish build checks from runtime/gameplay evidence;
-   disclose any pending runtime checks as above.
-6. Verify the README's install paths, module URLs/revisions, configuration defaults,
-   upstream attribution, license notices and status claims against the exact
-   candidate. Check that upstream badges are not presented as this fork's CI.
-7. After reviewing all three destinations and candidate commit IDs, publish
-   module updates before the core documentation that pins them. Coordinate
-   repository visibility separately for the initial public announcement.
-   Do not include ignored checkpoints or historical evidence bundles as release
-   assets.
-
-No commit, remote change or push is authorized by this checklist itself.
+The 2026-09-29 playtest established four-bot admission/instance entry, basic
+whispers, Mage offensive casting and Priest healing with clean shutdown.
+Full rotations, dependable death recovery, tank threat and autonomous population
+remain outside that evidence. Publication notes must retain those limits.

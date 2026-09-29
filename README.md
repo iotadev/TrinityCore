@@ -7,9 +7,12 @@ for TrinityCore Cataclysm 4.3.4. It is work in progress, not a ready-to-run
 playerbot dungeon server. Playerbots is disabled by default. A manually
 configured low-level party has been tested locally with starter Warrior,
 Mage, and Priest behavior; this does not establish a complete dungeon clear,
-general class/spec support, or autonomous population.
+general class/spec support, or autonomous population. The latest Ragefire check
+also exercised normal bot whispers and the Mage/Priest engine routes.
+Development continues with managed roster/lifecycle and a Cata MultiBot bridge.
 See the [local documentation index](doc/local/README.md),
-[Playerbots development notes](doc/local/playerbots/PLAYERBOTS_DEV.md), and
+[Playerbots roadmap](doc/local/playerbots/PLAYERBOTS_PORT_ROADMAP.md),
+[implementation handoff](doc/local/playerbots/PLAYERBOTS_WORK_PACKETS.md), and
 [AHBot development plan](doc/local/ahbot/AHBOT_DEV.md) for
 the current scope and validation status.
 
@@ -25,11 +28,11 @@ compatible. See the [module integration guide](modules/README.md) for the build
 boundary. The modules are independently selectable with
 `-DMODULE_MOD_PLAYERBOTS=ON|OFF` and `-DMODULE_MOD_AHBOT=ON|OFF`.
 
-For the first coordinated source snapshot, use these matching module revisions:
+For the 2026-09-29 operational party checkpoint, use these matching module revisions:
 
 | Module | Repository | Commit |
 | --- | --- | --- |
-| Playerbots | [iotadev/cata-playerbots](https://github.com/iotadev/cata-playerbots) | `afab1ea0201f53427aaf283087d36e68392938f9` |
+| Playerbots | [iotadev/cata-playerbots](https://github.com/iotadev/cata-playerbots) | `b9ebc6c7dfc3510d21a40b32a61c659df16e24d7` |
 | AHBot | [iotadev/cata-ahbot](https://github.com/iotadev/cata-ahbot) | `ac2064e91b02af6b345b492a3f3453614b0087ab` |
 
 Clone each repository into the shown `modules/` directory and check out its

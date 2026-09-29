@@ -8,9 +8,8 @@ Playerbots and AHBot are developed in separate Git checkouts at
 `modules/mod-playerbots` and `modules/mod-ahbot`; both are ignored by the core
 repository. A core checkout alone therefore contains neither implementation.
 Place compatible module checkouts in those directories before configuring an
-enabled build. The [core README](../README.md) records the matching module
-commits for the first coordinated source snapshot; arbitrary module/core
-combinations are not assumed to build together.
+enabled build. The core README records the module commits for each coordinated
+snapshot; arbitrary module/core combinations are not assumed to build together.
 Module code is statically compiled into the native `game` target. This provides
 source compartmentalization and optional build integration; dynamic loading and
 drop-in AzerothCore compatibility require separate work.

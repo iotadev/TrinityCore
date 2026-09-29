@@ -19,10 +19,13 @@ public:
     virtual ~PlayerbotSessionHooks() = default;
     virtual void RequestServerOriginFollow(uint32 guid) = 0;
     virtual void RequestServerOriginHold() = 0;
+    virtual void RequestPartyControllerFollow(uint32 guid) = 0;
+    virtual void RequestPartyControllerHold() = 0;
     virtual void RequestServerOriginAttack() = 0;
     virtual void RequestServerOriginCease() = 0;
     virtual void RequestServerOriginInstanceJoin(uint32 mapId) = 0;
     virtual uint32 GetFollowTargetGuidLow() const = 0;
+    virtual uint32 GetPartyControllerGuidLow() const = 0;
     virtual bool IsAttacking() const = 0;
     virtual void UpdateMap(uint32 diff) = 0;
     virtual void UpdateWorld() = 0;

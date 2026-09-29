@@ -1,10 +1,12 @@
-# Cata Playerbots development starting point
+# Cata Playerbots development history
 
-Status (2026-09-26): baseline, PB-00 lifecycle, PB-01 follow/hold, and a
-four-action PB-02 Warrior assist slice validated locally. Mage ranged damage
-and buffs now have client confirmation. Priest healing casts are logged, but
-sustained combat healing remains unverified. The latest mixed-party run ended
-on a Testtwo invitation timeout and clean shutdown. Playerbots remains default-off.
+Current checkpoint (2026-09-29): a disposable mixed-party client session reached
+Ragefire with four bots, logged 13 accepted Mage offensive casts, six Priest
+healing casts and one Fortitude cast, and shut down cleanly. The player reported
+good overall behavior and basic whisper control. This establishes an operational
+low-level party, not complete rotations, tanking, death recovery or autonomous
+play. Playerbots remains default-off. The dated sections below retain their
+historical implementation and test status, including earlier failed runs.
 
 Current sequencing and implementation task allocation are in
 [`PLAYERBOTS_PORT_ROADMAP.md`](PLAYERBOTS_PORT_ROADMAP.md), with concrete handoff
@@ -13,11 +15,11 @@ That roadmap supersedes older next-step ordering below. Earlier sections retain
 historical design and validation states; they are not all descriptions of the
 current implementation.
 
-The optional module foundation has now extracted companion behavior/state,
+The optional module foundation has extracted companion behavior/state,
 class helpers and development commands into `modules/mod-playerbots`, with
 module-owned configuration and tests. Native session ownership, admission and
-shutdown hooks remain in core. The upstream Engine/context port is the next
-step; packaging does not itself establish that parity. See
+shutdown hooks remain in core. The upstream Engine/context port is partial;
+packaging does not itself establish full parity. See
 `modules/mod-playerbots/README.md` for build/config controls and
 `PLAYERBOTS_MODULE_VALIDATION.md` for verification evidence.
 

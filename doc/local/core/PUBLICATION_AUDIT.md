@@ -1,10 +1,9 @@
-# Historical local publication privacy audit
+# Local publication privacy audit
 
-The findings below record the 2026-09-27 development-tree audit. The subsequent
-publication used an isolated core branch and separate reviewed module snapshots;
-the older development commits described below are not the core publication
-branch. See [current publication status](PUBLISHING_CHECKLIST.md). This report
-does not certify upstream security or replace review of future contributions.
+Historical audit of the initial publication preparation. Subsequent snapshots
+have been published using curated history. For new milestones follow
+PUBLISHING_CHECKLIST.md and inspect the new outgoing diff; the findings below
+describe the original audit and do not certify later changes.
 
 Date: 2026-09-27. This audit covers local changes against the recorded upstream
 base plus untracked source, and the five existing local commits. It is a targeted

@@ -347,8 +347,34 @@ WorldSession* World::FindDevPlayerbotSlot(uint8 slot) const
 
     uint32 accountId = getIntConfig(accounts[slot - 1]);
     uint32 characterGuid = getIntConfig(characters[slot - 1]);
-    WorldSession* session = accountId && characterGuid ? FindSession(accountId) : nullptr;
-    return session && session->IsServerOrigin() && session->GetServerOriginCharacterGuid().GetCounter() == characterGuid ? session : nullptr;
+    WorldSession* session = characterGuid ? FindServerOriginPlayerbot(ObjectGuid::Create<HighGuid::Player>(characterGuid)) : nullptr;
+    return session && session->GetAccountId() == accountId ? session : nullptr;
+}
+
+WorldSession* World::FindServerOriginPlayerbot(ObjectGuid characterGuid) const
+{
+    if (characterGuid.IsEmpty())
+        return nullptr;
+
+    for (auto const& [accountId, session] : m_sessions)
+    {
+        (void)accountId;
+        if (session && session->IsServerOrigin() && session->GetServerOriginCharacterGuid() == characterGuid)
+            return session;
+    }
+    return nullptr;
+}
+
+std::vector<WorldSession*> World::GetServerOriginPlayerbotSessions() const
+{
+    std::vector<WorldSession*> bots;
+    for (auto const& [accountId, session] : m_sessions)
+    {
+        (void)accountId;
+        if (session && session->IsServerOrigin())
+            bots.push_back(session);
+    }
+    return bots;
 }
 
 bool World::TryStartDevPlayerbotSlot(uint8 slot)

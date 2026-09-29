@@ -1,5 +1,9 @@
 # Low-level companion-party prototype checkpoint
 
+Historical 2026-09-27 evidence. The later gated-engine and whisper checkpoint
+is recorded in NEXT_MIXED_PARTY_TEST.md (2026-09-29); the roadmap is the current
+status. Statements below apply to this earlier revision.
+
 Date: 2026-09-27. Status: client-observed low-level mixed-party prototype;
 not a complete upstream Playerbots Engine or general dungeon-clear implementation.
 
@@ -35,5 +39,5 @@ Known limitations:
   compatibility claim is made from this run.
 
 This run supported the original source-preservation checkpoint. Current source
-publication status is recorded in [the publication checklist](../core/PUBLISHING_CHECKLIST.md);
-the limitations above still apply to this playtest evidence.
+publication practice is recorded in PLAYERBOTS_REPOSITORY_PLAN.md; the
+limitations above apply to this historical playtest evidence.

@@ -501,7 +501,10 @@ class TC_GAME_API WorldSession
         void RequestServerOriginExit();
         void RequestServerOriginFollow(uint32 characterGuidLow);
         void RequestServerOriginHold();
+        void RequestPartyControllerFollow(uint32 characterGuidLow);
+        void RequestPartyControllerHold();
         uint32 GetServerOriginFollowTargetGuidLow() const;
+        uint32 GetServerOriginPartyControllerGuidLow() const;
         void RequestServerOriginAttack();
         void RequestServerOriginCease();
         void RequestServerOriginInstanceJoin(uint32 mapId);
