@@ -191,6 +191,7 @@ enum WorldBoolConfigs : uint8
     CONFIG_LEGACY_CONNECTION_MODE,
     CONFIG_PLAYERBOTS_DEV_ENABLED,
     CONFIG_PLAYERBOTS_DEV_GREETING_ENABLED,
+    CONFIG_PLAYERBOTS_MANAGED_ENABLED,
     BOOL_CONFIG_VALUE_COUNT
 };
 
@@ -619,6 +620,10 @@ class TC_GAME_API World
         bool TryStartDevPlayerbotSlot(uint8 slot);
         bool RequestStopDevPlayerbotSlot(uint8 slot);
         WorldSession* FindDevPlayerbotSlot(uint8 slot) const;
+        // World-thread-only admission for an authorized identity. Callers own
+        // authorization; this path validates account/character ownership.
+        bool TryStartServerOriginPlayerbot(uint32 accountId, ObjectGuid characterGuid);
+        bool RequestStopServerOriginPlayerbot(ObjectGuid characterGuid);
         // World-thread-only lookup for an already admitted server-origin bot.
         WorldSession* FindServerOriginPlayerbot(ObjectGuid characterGuid) const;
         // Borrowed sessions; consume on the world thread without retaining them.

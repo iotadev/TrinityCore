@@ -379,7 +379,7 @@ std::vector<WorldSession*> World::GetServerOriginPlayerbotSessions() const
 
 bool World::TryStartDevPlayerbotSlot(uint8 slot)
 {
-    if (!getBoolConfig(CONFIG_PLAYERBOTS_DEV_ENABLED) || IsStopped() || IsShuttingDown())
+    if (!getBoolConfig(CONFIG_PLAYERBOTS_DEV_ENABLED))
         return false;
 
     static std::array<WorldIntConfigs, 4> const accounts = { CONFIG_PLAYERBOTS_DEV_ACCOUNT_ID, CONFIG_PLAYERBOTS_DEV_ACCOUNT_ID_2,
@@ -400,24 +400,20 @@ bool World::TryStartDevPlayerbotSlot(uint8 slot)
             (accountId == getIntConfig(accounts[index]) || configuredGuid == getIntConfig(characters[index])))
             return false;
 
-    ObjectGuid characterGuid = ObjectGuid::Create<HighGuid::Player>(configuredGuid);
+    return TryStartServerOriginPlayerbot(accountId, ObjectGuid::Create<HighGuid::Player>(configuredGuid));
+}
 
-    // World::m_sessions has one entry per account. Never replace a human session.
-    if (FindSession(accountId))
+bool World::TryStartServerOriginPlayerbot(uint32 accountId, ObjectGuid characterGuid)
+{
+    if ((!getBoolConfig(CONFIG_PLAYERBOTS_DEV_ENABLED) && !getBoolConfig(CONFIG_PLAYERBOTS_MANAGED_ENABLED)) ||
+        IsStopped() || IsShuttingDown() ||
+        !accountId || characterGuid.IsEmpty() || !characterGuid.IsPlayer())
         return false;
 
-    for (auto const& [existingAccountId, existingSession] : m_sessions)
-    {
-        if (!existingSession || !existingSession->IsServerOrigin())
-            continue;
-        bool recognized = false;
-        for (uint8 index = 0; index < accounts.size(); ++index)
-            if (existingAccountId == getIntConfig(accounts[index]) &&
-                existingSession->GetServerOriginCharacterGuid().GetCounter() == getIntConfig(characters[index]))
-                recognized = true;
-        if (!recognized)
-            return false;
-    }
+    // World::m_sessions owns one session per account. Do not replace a human,
+    // a loading bot or another character already admitted by this manager.
+    if (FindSession(accountId) || FindServerOriginPlayerbot(characterGuid))
+        return false;
 
     uint32 playerLimit = GetPlayerAmountLimit();
     if (playerLimit && GetActiveAndQueuedSessionCount() >= playerLimit)
@@ -461,13 +457,21 @@ bool World::TryStartDevPlayerbotSlot(uint8 slot)
     return true;
 }
 
-bool World::RequestStopDevPlayerbotSlot(uint8 slot)
+bool World::RequestStopServerOriginPlayerbot(ObjectGuid characterGuid)
 {
-    if (WorldSession* session = FindDevPlayerbotSlot(slot))
+    if (WorldSession* session = FindServerOriginPlayerbot(characterGuid))
     {
         session->RequestServerOriginExit();
         return true;
     }
+
+    return false;
+}
+
+bool World::RequestStopDevPlayerbotSlot(uint8 slot)
+{
+    if (WorldSession* session = FindDevPlayerbotSlot(slot))
+        return RequestStopServerOriginPlayerbot(session->GetServerOriginCharacterGuid());
 
     return false;
 }

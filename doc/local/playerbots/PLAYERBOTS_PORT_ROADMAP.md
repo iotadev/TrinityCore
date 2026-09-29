@@ -32,9 +32,14 @@ The fixture human had GM privileges; ordinary-player authorization boundaries
 were source-reviewed but not independently exercised in this session.
 
 Playerbots admission and all experimental engine routes remain default-off.
-Accounts/characters are manually supplied, with at most four development slots.
-A managed offline roster, creation factory, MultiBot protocol, complete class/spec
-profiles and autonomous population are not implemented.
+Accounts/characters are manually supplied. Four development slots remain for
+the prior fixture; an initial, separate configured roster now permits
+console-requested admission/logout of existing identities through the same
+native path. That new path passed a combined build and 67 automated checks;
+it has not had a configured managed-roster runtime check.
+The managed identity list has no account/character factory, human-facing
+connect permission, completed-operation ledger or automatic population.
+MultiBot, complete class/spec profiles and autonomy are not implemented.
 
 ## Direction and source policy
 
@@ -70,7 +75,8 @@ because its generic class spells compile.
 
 | Layer | Current responsibility | Next extension |
 |---|---|---|
-| Core `World` / `WorldSession` | Socketless admission, account/session ownership, active GUID lookup, lifecycle and module hooks | General admission behind a managed roster; keep world-thread ownership |
+| Core `World` / `WorldSession` | Socketless admission, account/session ownership, active GUID lookup, general identity admission, lifecycle and module hooks | Completed-operation reporting; keep world-thread ownership |
+| Module `PlayerbotManagedRoster` | Default-off configured existing identities and console list/start/stop | Eligibility/permission model and lifecycle outcomes before player/addon connect |
 | Module `PlayerbotSessionBehavior` | Party, movement, combat/transfer orchestration and queued controls; lazily creates AI after Player load | Gradually hand supported behavior to donor runtime/state/event mechanisms |
 | `PlayerbotAI`, `AiObjectContext`, `Engine` | Imported scheduler, registries and bounded class contexts | Broader dependency-complete actions/values and combat/noncombat/dead-state integration |
 | `PlayerbotSecurity` / `PlayerbotControl` | Invitation-controller authorization and queued follow/hold/attack/cease | Reuse for roster lifecycle and addon requests |
@@ -105,7 +111,7 @@ prerequisites for the next Playerbots work.
 |---|---|
 | 0. Operational foundation | Build, copied-realm startup, four-bot login/instance/logout and basic controls established |
 | 1. Donor runtime foundation | Scheduler/context and gated class routes integrated; complete state/event contracts incrementally |
-| 2. Managed party and first addon controls | Current priority: managed roster/lifecycle, then creation and a capability-limited Cata MultiBot bridge |
+| 2. Managed party and first addon controls | Configured existing-character roster and console lifecycle slice started; next: outcomes, player permission model, creation and a capability-limited Cata MultiBot bridge |
 | 3. Class/spec coverage | Extend donor profiles, roles, rest, loot, dispels, interrupts, pets and recovery against Cata data |
 | 4. Autonomous population | Bounded RandomPlayerbotMgr login/logout, ownerless behavior, travel/RPG/quests and persistence |
 | 5. Dungeon and ecosystem features | Encounter strategies, tank leadership/one-dungeon clear, wider addon features and optional modules |

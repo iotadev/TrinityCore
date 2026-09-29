@@ -12,9 +12,13 @@ Do not restart those ports. The latest combined build and short Ragefire check
 passed. Mage opener and basic commands are operational; complete rotations,
 resurrection/recovery and autonomy are still partial or absent.
 
-The next implementation batch is **managed existing-character roster and
-lifecycle, plus the first Cata MultiBot protocol mapping**. Account/character
-creation follows the manager contract; extensive class polish is not a gate.
+The next implementation batch is **managed lifecycle outcomes and authorization,
+plus the first Cata MultiBot protocol mapping**. An initial configured
+existing-character roster and console connect/disconnect path are in source;
+the combined build and 67 automated checks passed. A later integrated runtime
+check still needs to exercise that configured admission path.
+Account/character creation follows the manager contract; extensive class
+polish is not a gate.
 Preserve native account/session ownership and keep runtime admission default-off.
 
 ## Source and repository contract
@@ -42,35 +46,37 @@ All module paths below are relative to `modules/mod-playerbots`.
 | Source | Responsibility |
 |---|---|
 | `src/Bot/PlayerbotRoster.{h,cpp}` | Online controllable roster; currently no persistent/offline identities |
+| `src/Bot/PlayerbotManagedRoster.{h,cpp}` | Configured offline identities; no creation, auto-login or human permission yet |
 | `src/Bot/Cmd/PlayerbotControl.{h,cpp}` | World-thread resolve/authorize/queue boundary for normal controls |
 | `src/Mgr/Security/PlayerbotSecurity.{h,cpp}` | Invitation and full-control relationship; current party controller plus GM override |
 | `src/Script/PlayerbotChatCommands.cpp` | Ordinary whisper transport; addon messages deliberately not handled here |
 | `src/Bot/PlayerbotSessionBehavior.{h,cpp}` | Queued requests and map/world behavior; per-bot AI lifetime |
 | `src/Bot/Engine/`, `src/Ai/Class/` | Imported scheduler and partial class contexts; extend instead of another decision loop |
 | Core `World::{FindServerOriginPlayerbot,GetServerOriginPlayerbotSessions}` | Borrowed active-session lookup on world thread |
-| Core `World::TryStartDevPlayerbotSlot` and `WorldSession` | Current admission/teardown path to generalize carefully |
+| Core `World::TryStartServerOriginPlayerbot` and `WorldSession` | General native admission/save/logout; dev slots remain callers |
 
 A command reply saying "requested" acknowledges queuing, not successful casting
 or completed transfer. The next lifecycle API must expose pending/completed/failed
 outcomes. `stop` currently ceases combat; it does not disconnect the character.
 
-## A. Managed existing-character roster/lifecycle — next implementation
+## A. Managed existing-character roster/lifecycle — in progress
 
 Donor basis: PlayerbotMgr, RandomPlayerbotMgr ownership/selection, relevant
 PlayerbotSecurity relationships, and their login/logout callers. Inspect exact
 paths at the selected donor revision before designing the reduced Cata port.
 
 Scope:
-- Represent managed bot identity and availability independently of four numbered
-  development slots. Reuse existing characters first.
+- Configured identity and console list/start/stop are implemented separately
+  from four numbered development slots. Reuse existing characters first.
+- Expose terminal outcomes for admission and logout, and reconcile pending
+  requests across failed loads, disconnects and shutdown.
 - Separate managed account ownership from temporary party control. Preserve
   eligible human invitations; group membership alone is not full authorization.
-- Route authorized connect/disconnect through world-owned native admission,
-  async loading, logout/save and final-state reporting.
+- Route later player/addon connect/disconnect through the same world-owned
+  native admission, async loading and logout/save path after permission checks.
 - Keep one active character per account for this slice. Reject duplicates,
   conflicting human sessions and stale/ineligible characters.
-- Reconcile pending requests during disconnect, transfer failure and shutdown.
-  Keep the current development fixture usable until the replacement is operational.
+- Keep the current development fixture usable until the replacement is operational.
 
 Useful acceptance: an existing managed character can be listed offline, admitted,
 listed online, disconnected/saved and admitted again; duplicate and unauthorized

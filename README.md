@@ -32,7 +32,7 @@ For the 2026-09-29 operational party checkpoint, use these matching module revis
 
 | Module | Repository | Commit |
 | --- | --- | --- |
-| Playerbots | [iotadev/cata-playerbots](https://github.com/iotadev/cata-playerbots) | `b9ebc6c7dfc3510d21a40b32a61c659df16e24d7` |
+| Playerbots | [iotadev/cata-playerbots](https://github.com/iotadev/cata-playerbots) | `4101a7fb8ff7f36b6caa772eee99a314e9ceafe2` |
 | AHBot | [iotadev/cata-ahbot](https://github.com/iotadev/cata-ahbot) | `ac2064e91b02af6b345b492a3f3453614b0087ab` |
 
 Clone each repository into the shown `modules/` directory and check out its
