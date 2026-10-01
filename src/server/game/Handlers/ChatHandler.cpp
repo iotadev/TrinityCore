@@ -36,6 +36,7 @@
 #include "ObjectMgr.h"
 #include "Opcodes.h"
 #include "Player.h"
+#include "PlayerbotAddonBridge.h"
 #include "ScriptMgr.h"
 #include "SpellAuraEffects.h"
 #include "Util.h"
@@ -691,6 +692,9 @@ void WorldSession::HandleAddonMessagechatOpcode(WorldPacket& recvData)
             if (!receiver)
                 break;
 
+            if (receiver == sender && HandlePlayerbotAddonMessage(*sender, prefix, message))
+                break;
+
             sender->WhisperAddon(message, prefix, receiver);
             break;
         }
@@ -700,6 +704,9 @@ void WorldSession::HandleAddonMessagechatOpcode(WorldPacket& recvData)
         {
             Group* group = sender->GetGroup();
             if (!group || group->isBGGroup())
+                break;
+
+            if (HandlePlayerbotAddonMessage(*sender, prefix, message))
                 break;
 
             WorldPacket data;

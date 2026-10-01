@@ -21,6 +21,7 @@
 
 #include "World.h"
 #include "AccountMgr.h"
+#include "CharacterProvisioningPolicy.h"
 #include "AchievementMgr.h"
 #include "AddonMgr.h"
 #include "ArchaeologyMgr.h"
@@ -174,6 +175,7 @@ World::World()
 /// World destructor
 World::~World()
 {
+    _characterProvisioningContexts.clear();
     ///- Empty the kicked session set
     while (!m_sessions.empty())
     {
@@ -412,7 +414,7 @@ bool World::TryStartServerOriginPlayerbot(uint32 accountId, ObjectGuid character
 
     // World::m_sessions owns one session per account. Do not replace a human,
     // a loading bot or another character already admitted by this manager.
-    if (FindSession(accountId) || FindServerOriginPlayerbot(characterGuid))
+    if (FindSession(accountId) || IsCharacterProvisioningAccount(accountId) || FindServerOriginPlayerbot(characterGuid))
         return false;
 
     uint32 playerLimit = GetPlayerAmountLimit();
@@ -461,11 +463,81 @@ bool World::RequestStopServerOriginPlayerbot(ObjectGuid characterGuid)
 {
     if (WorldSession* session = FindServerOriginPlayerbot(characterGuid))
     {
+        session->GetServerOriginLifecycle()->StopRequested();
         session->RequestServerOriginExit();
         return true;
     }
 
     return false;
+}
+
+bool World::IsCharacterProvisioningAccount(uint32 accountId) const
+{
+    return _characterProvisioningContexts.find(accountId) != _characterProvisioningContexts.end();
+}
+
+WorldSession* World::CreateCharacterProvisioningContext(uint32 accountId)
+{
+    if (!CanBeginCharacterProvisioning(accountId, FindSession(accountId) != nullptr,
+        IsCharacterProvisioningAccount(accountId), IsStopped() || IsShuttingDown(),
+        _characterProvisioningContexts.size()))
+        return nullptr;
+
+    LoginDatabasePreparedStatement* stmt = LoginDatabase.GetPreparedStatement(LOGIN_SEL_CHARACTER_PROVISIONING_ACCOUNT);
+    stmt->setUInt32(0, accountId);
+    PreparedQueryResult account = LoginDatabase.Query(stmt);
+    if (!account || !CharacterProvisioningAccountEligible((*account)[2].GetUInt64() != 0, uint32((*account)[3].GetUInt64())))
+        return nullptr;
+    std::string accountName = (*account)[0].GetString();
+    if (sAccountMgr->IsBannedAccount(accountName))
+        return nullptr;
+
+    auto context = std::make_unique<WorldSession>(accountId, std::move(accountName), nullptr,
+        SEC_PLAYER, (*account)[1].GetUInt8(), 0, GetDefaultDbcLocale(), 0, false,
+        WorldSessionOrigin::CharacterCreation);
+    auto inserted = _characterProvisioningContexts.emplace(accountId, std::move(context));
+    return inserted.first->second.get();
+}
+
+std::shared_ptr<NativeCharacterCreationReceipt const> World::BeginCharacterProvisioning(
+    uint32 accountId, CharacterCreateInfo const& request)
+{
+    WorldSession* owner = CreateCharacterProvisioningContext(accountId);
+    if (!owner)
+        return nullptr;
+    // Reserve before submitting queries; native callbacks retain Player/create
+    // inputs through this owner. Do not initialize, admit or update it as a player.
+    auto receipt = owner->BeginCharacterCreation(request);
+    if (!receipt)
+        _characterProvisioningContexts.erase(accountId);
+    return receipt;
+}
+
+std::shared_ptr<NativeCharacterCreationReceipt const> World::BeginCharacterReconciliation(
+    uint32 accountId, ObjectGuid characterGuid)
+{
+    if (!characterGuid.IsPlayer() || !characterGuid.GetCounter())
+        return nullptr;
+    CharacterCacheEntry const* cached = sCharacterCache->GetCharacterCacheByGuid(characterGuid);
+    if (!cached || cached->AccountId != accountId)
+        return nullptr;
+    WorldSession* owner = CreateCharacterProvisioningContext(accountId);
+    if (!owner)
+        return nullptr;
+    // Aggregate always returns a row. Require one actual native character with
+    // this GUID on the reserved account, not a caller-supplied success receipt.
+    QueryResult identity = CharacterDatabase.PQuery(
+        "SELECT COUNT(*), CAST(COALESCE(MAX(guid),0) AS UNSIGNED) FROM characters WHERE account=%u", accountId);
+    if (!identity || (*identity)[0].GetUInt64() != 1 || (*identity)[1].GetUInt64() != characterGuid.GetCounter())
+    {
+        _characterProvisioningContexts.erase(accountId);
+        return nullptr;
+    }
+    owner->_characterCreationReceipt = std::make_shared<NativeCharacterCreationReceipt>(true);
+    owner->_characterCreationReceipt->Complete(CHAR_CREATE_SUCCESS, true, characterGuid.GetCounter());
+    // UpdateSessions pumps the same accounting path and holds the reservation
+    // until its confirmed commit. No native character creation is repeated.
+    return owner->_characterCreationReceipt;
 }
 
 bool World::RequestStopDevPlayerbotSlot(uint8 slot)
@@ -503,6 +575,13 @@ void World::AddInstanceSocket(std::weak_ptr<WorldSocket> sock, uint64 connectToK
 void World::AddSession_(WorldSession* s)
 {
     ASSERT(s);
+    ASSERT(!s->IsCharacterCreationContext());
+    if (IsCharacterProvisioningAccount(s->GetAccountId()))
+    {
+        s->KickPlayer();
+        delete s;
+        return;
+    }
 
     // The PB-00 account is dedicated: neither a bot nor a client may replace
     // an already enrolled server-origin session, and a bot may not replace a client.
@@ -3348,6 +3427,22 @@ void World::UpdateSessions(uint32 diff)
     WorldSession* sess = nullptr;
     while (addSessQueue.next(sess))
         AddSession_(sess);
+
+    // Script callbacks can submit another request and rehash the registry.
+    // Snapshot account keys rather than retaining iterators through callbacks.
+    std::vector<uint32> provisioningAccounts;
+    provisioningAccounts.reserve(_characterProvisioningContexts.size());
+    for (auto const& entry : _characterProvisioningContexts)
+        provisioningAccounts.push_back(entry.first);
+    for (uint32 accountId : provisioningAccounts)
+    {
+        WorldSession& context = *_characterProvisioningContexts.at(accountId);
+        context.ProcessQueryCallbacks();
+        context.AdvanceCharacterCreationAccounting();
+        auto state = context._characterCreationReceipt->GetState();
+        if (state != NativeCharacterCreationReceipt::State::Pending && state != NativeCharacterCreationReceipt::State::Reconciling)
+            _characterProvisioningContexts.erase(accountId);
+    }
 
     ///- Then send an update signal to remaining ones
     for (SessionMap::iterator itr = m_sessions.begin(), next; itr != m_sessions.end(); itr = next)

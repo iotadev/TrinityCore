@@ -3,11 +3,17 @@
  * Released under GNU GPL v2 or any later version.
  */
 #include "PlayerbotSessionHooks.h"
+#include "PlayerbotAddonBridge.h"
 #include "PlayerbotModuleCommands.h"
 #include "ModuleBuildConfig.h"
 #include "World.h"
 
 #ifndef TC_MODULE_PLAYERBOTS
+bool HandlePlayerbotAddonMessage(Player& /*sender*/, std::string const& /*prefix*/, std::string const& /*message*/)
+{
+    return false;
+}
+
 std::unique_ptr<PlayerbotSessionHooks> CreatePlayerbotSessionHooks(WorldSession& /*session*/)
 {
     return nullptr;

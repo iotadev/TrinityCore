@@ -151,8 +151,10 @@ WorldSession::WorldSession(uint32 id, std::string&& name, std::shared_ptr<WorldS
     _serverOriginExitRequested(false)
 {
     ASSERT(IsServerOrigin() == !_serverOriginCharacterGuid.IsEmpty());
+    ASSERT(!IsCharacterCreationContext() || (!sock && sec == SEC_PLAYER));
     if (IsServerOrigin())
     {
+        _serverOriginLifecycle = std::make_shared<ServerOriginPlayerbotLifecycle>();
         _playerbotHooks = CreatePlayerbotSessionHooks(*this);
         ASSERT(_playerbotHooks);
     }
@@ -175,6 +177,9 @@ WorldSession::WorldSession(uint32 id, std::string&& name, std::shared_ptr<WorldS
 /// WorldSession destructor
 WorldSession::~WorldSession()
 {
+    if (_characterCreationReceipt)
+        _characterCreationReceipt->Abandon();
+
     ///- unload player if not unloaded
     if (_player)
         LogoutPlayer(true);
@@ -199,7 +204,10 @@ WorldSession::~WorldSession()
     while (_recvQueue.next(packet))
         delete packet;
 
-    LoginDatabase.PExecute("UPDATE account SET online = 0 WHERE id = %u;", GetAccountId());     // One-time query
+    if (!IsCharacterCreationContext())
+        LoginDatabase.PExecute("UPDATE account SET online = 0 WHERE id = %u;", GetAccountId()); // One-time query
+    if (_serverOriginLifecycle)
+        _serverOriginLifecycle->SessionClosed(World::IsStopped());
 }
 
 void WorldSession::RequestServerOriginExit()
@@ -1333,6 +1341,7 @@ public:
 
 void WorldSession::InitializeSession()
 {
+    ASSERT(!IsCharacterCreationContext());
     ASSERT(_initializationState == WorldSessionInitializationState::Created);
     _initializationState = WorldSessionInitializationState::Loading;
 
@@ -1340,6 +1349,8 @@ void WorldSession::InitializeSession()
     if (!realmHolder->Initialize(GetAccountId()))
     {
         _initializationState = WorldSessionInitializationState::Failed;
+        if (_serverOriginLifecycle)
+            _serverOriginLifecycle->LoginFailed();
         if (!IsServerOrigin())
             SendAuthResponse(AUTH_SYSTEM_ERROR, false);
         return;
@@ -1363,6 +1374,7 @@ void WorldSession::InitializeSessionCallback(CharacterDatabaseQueryHolder const&
         if (!BeginServerOriginCharacterLogin())
         {
             _initializationState = WorldSessionInitializationState::Failed;
+            _serverOriginLifecycle->LoginFailed();
             RequestServerOriginExit();
         }
         return;

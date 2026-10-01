@@ -9,7 +9,10 @@ configured low-level party has been tested locally with starter Warrior,
 Mage, and Priest behavior; this does not establish a complete dungeon clear,
 general class/spec support, or autonomous population. The latest Ragefire check
 also exercised normal bot whispers and the Mage/Priest engine routes.
-Development continues with managed roster/lifecycle and a Cata MultiBot bridge.
+Managed roster/lifecycle, a Cata MultiBot bridge and an optional native character
+factory are implemented in development. Their validation boundaries are recorded
+in the [infrastructure acceptance checklist](doc/local/playerbots/PLAYERBOTS_INFRASTRUCTURE_MILESTONE.md);
+this is not a claim of autonomous population or full donor feature parity.
 See the [local documentation index](doc/local/README.md),
 [Playerbots roadmap](doc/local/playerbots/PLAYERBOTS_PORT_ROADMAP.md),
 [implementation handoff](doc/local/playerbots/PLAYERBOTS_WORK_PACKETS.md), and
@@ -28,11 +31,14 @@ compatible. See the [module integration guide](modules/README.md) for the build
 boundary. The modules are independently selectable with
 `-DMODULE_MOD_PLAYERBOTS=ON|OFF` and `-DMODULE_MOD_AHBOT=ON|OFF`.
 
-For the 2026-09-29 operational party checkpoint, use these matching module revisions:
+For the 2026-10-01 player-controlled infrastructure milestone, use these matching
+module revisions. The bundled Windows client lifecycle check passed, and the
+Linux server build with both modules enabled passed all 109 automated tests.
+Linux realm runtime and full donor gameplay parity remain unverified.
 
 | Module | Repository | Commit |
 | --- | --- | --- |
-| Playerbots | [iotadev/cata-playerbots](https://github.com/iotadev/cata-playerbots) | `4101a7fb8ff7f36b6caa772eee99a314e9ceafe2` |
+| Playerbots | [iotadev/cata-playerbots](https://github.com/iotadev/cata-playerbots) | `70014ce88cb2d99a370894baef7a32876ff94a50` |
 | AHBot | [iotadev/cata-ahbot](https://github.com/iotadev/cata-ahbot) | `ac2064e91b02af6b345b492a3f3453614b0087ab` |
 
 Clone each repository into the shown `modules/` directory and check out its

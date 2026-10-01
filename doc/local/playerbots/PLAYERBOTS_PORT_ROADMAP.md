@@ -1,11 +1,67 @@
 # Cata Playerbots roadmap
 
-Updated 2026-09-29. This is the current plan and status. Use
+Updated 2026-10-01. This is the current plan and status. Use
 [work packets](PLAYERBOTS_WORK_PACKETS.md) to resume implementation and the
 module's `PORTING.md` for imported code and Cata adaptations. Dated validation
 reports and [development history](PLAYERBOTS_DEV.md) describe earlier revisions.
 
 ## Current checkpoint
+
+For player-controlled small parties, the main infrastructure is in place:
+optional modules, native session admission/lifecycle, ownership/control,
+decision scheduling, MultiBot transport and bounded native provisioning.
+The bundled ordinary-client creation/accounting and addon-managed roster/lifecycle
+check passed on 2026-10-01 with clean shutdown. The matching Ubuntu 22.04/GCC 11
+server build with both modules enabled and no PCH also passed all 109 tests.
+This completes the scoped player-controlled infrastructure acceptance, not
+Linux runtime or full feature parity. Autonomous population will need
+its own bounded manager later; it is not a prerequisite for broader class,
+rest/loot/recovery and dungeon feature ports now. Add core seams only when a
+concrete donor consumer requires them, rather than building speculative services.
+
+The completed feature-alignment slice routes existing Mage/Priest party buffs through
+registered class strategies/triggers/actions, gated by EnginePartyBuff. It adds
+no new spell behavior and defers runtime confirmation to a useful party check.
+See research/PARTY_BUFF_ENGINE_PACKET.md and module PORTING.md for its scope.
+Worldserver/tests-common built with both modules enabled and all 109 automated
+tests passed. This is not runtime proof of the new buff route.
+
+The earlier factory checkpoint built worldserver/authserver and passed all 106
+automated checks; the later party-buff checkpoint above raised the total to 109.
+The first factory slice provides a bounded, read-only Cata appearance draft
+and console diagnostic. The bundled server-only factory runtime check now passed.
+The core now shares a typed creation entry point and outcome receipt with
+ordinary client creation; the bounded console factory caller is now in source.
+The dedicated creation-only owner is now in a bounded world registry, separate
+from human/bot sessions. It reserves accounts against overlapping admission and
+does not maintain account-online flags. The module now has pure ownership/reuse
+decision rules, an optional manual ownership schema, native reader and default-off
+console inspection/enrollment/provision/status. Enrollment explicitly dedicates
+a pre-created empty account without credential changes. Native submission creates
+missing identities; exact reruns use a reserved accounting-only context rather
+than another create attempt. The operator slice built both executables and passed
+all 106 tests. Native database/runtime verification also passed on a fresh clone:
+absent-schema rejection, enrollment/eligibility gates, creation, exact reuse with
+realm-count repair, conflicting-intent rejection and explicit managed login/logout.
+The missing-schema case originally exposed a fatal SQL error; optional column
+metadata is now checked first without weakening core SQL error handling.
+Provisioning retains the reservation through realm-count reconciliation
+and exposes a ready GUID only after character creation and the corrective
+accounting commit both succeed. No automatic account creation, roster/config
+mutation, admission or player-control grant occurs. The disposable batch confirmed
+save/logout and clean world/database shutdown. Ordinary client creation and
+addon-managed lifecycle were subsequently verified in the separate bundled
+client check, not by the server-only factory batch.
+The 2026-09-30 Windows MultiBot check confirmed clean addon startup, Stay,
+Follow and main Attack. Two client startup adaptations corrected library load
+order and Cata macro-icon enumeration. The existing 25-yard combat gate was
+observed in rejection logs and engagement succeeded after moving closer.
+On 2026-10-01, an ordinary explicitly linked player used My Bots to connect,
+disconnect and reconnect a managed bot. Native records and the harness confirmed
+completion and clean shutdown. This does not certify an exhaustive live
+authorization matrix.
+These local changes are not yet a
+published matching snapshot; prior dated test counts below describe earlier slices.
 
 The optional module, server-origin session lifecycle, imported scheduling
 engine, bounded Warrior/Mage/Priest contexts, active roster, and first whisper
@@ -37,9 +93,24 @@ the prior fixture; an initial, separate configured roster now permits
 console-requested admission/logout of existing identities through the same
 native path. That new path passed a combined build and 67 automated checks;
 it has not had a configured managed-roster runtime check.
-The managed identity list has no account/character factory, human-facing
-connect permission, completed-operation ledger or automatic population.
-MultiBot, complete class/spec profiles and autonomy are not implemented.
+The latest local slice adds session-owned lifecycle receipts: loading, online,
+exit pending, stopped, login failed, unexpected disconnect and shutdown. The
+roster retains the latest receipt after session deletion and preserves it across
+matching settings reloads. New admissions have separate receipts. This is an
+in-memory outcome contract; it does not guarantee asynchronous DB commit success
+or persist outcomes across process restarts. The combined worldserver build
+with both modules enabled passed, as did all 71 automated checks, including
+four transition regressions. Native managed start/stop remains runtime-unverified.
+The latest player lifecycle service adds explicit trusted account links and
+same-faction access; stop/list of grouped bots also requires current full party
+control, with the donor GM override retained. It is separately default-off and
+returns authorized roster views/receipts for later transports. Malformed links
+disable player access. The default-off MultiBot endpoint now calls this service. The combined
+worldserver build and all 75 automated tests passed for this addition; live
+ordinary-player permissions remain unverified.
+The managed identity list has no account/character factory or automatic population.
+MultiBot's initial transport and patched Windows client are present; complete
+class/spec profiles, broader addon services and autonomy are not implemented.
 
 ## Direction and source policy
 
@@ -73,10 +144,17 @@ because its generic class spells compile.
 
 ## Architecture and boundaries
 
+The [reference guide](PLAYERBOTS_REFERENCE_GUIDE.md) records the source hierarchy,
+dated working/public revisions, and ArkCORE's limited role as a Cata behavior
+reference. Its Creature-based architecture is not a donor for Player sessions.
+Shared recovery coordination belongs at the session/manager boundary; native
+core lifecycle rules and class-specific spell decisions retain their owners.
+Apply these comparisons within the existing stages, not as a new prerequisite.
+
 | Layer | Current responsibility | Next extension |
 |---|---|---|
 | Core `World` / `WorldSession` | Socketless admission, account/session ownership, active GUID lookup, general identity admission, lifecycle and module hooks | Completed-operation reporting; keep world-thread ownership |
-| Module `PlayerbotManagedRoster` | Default-off configured existing identities and console list/start/stop | Eligibility/permission model and lifecycle outcomes before player/addon connect |
+| Module `PlayerbotManagedRoster` / `PlayerbotManagedControl` | Configured identities, console lifecycle receipts, default-off authorized player list/start/stop service and account links | MultiBot transport/operation mapping, then wider donor eligibility |
 | Module `PlayerbotSessionBehavior` | Party, movement, combat/transfer orchestration and queued controls; lazily creates AI after Player load | Gradually hand supported behavior to donor runtime/state/event mechanisms |
 | `PlayerbotAI`, `AiObjectContext`, `Engine` | Imported scheduler, registries and bounded class contexts | Broader dependency-complete actions/values and combat/noncombat/dead-state integration |
 | `PlayerbotSecurity` / `PlayerbotControl` | Invitation-controller authorization and queued follow/hold/attack/cease | Reuse for roster lifecycle and addon requests |
@@ -111,7 +189,7 @@ prerequisites for the next Playerbots work.
 |---|---|
 | 0. Operational foundation | Build, copied-realm startup, four-bot login/instance/logout and basic controls established |
 | 1. Donor runtime foundation | Scheduler/context and gated class routes integrated; complete state/event contracts incrementally |
-| 2. Managed party and first addon controls | Configured existing-character roster and console lifecycle slice started; next: outcomes, player permission model, creation and a capability-limited Cata MultiBot bridge |
+| 2. Managed party and first addon controls | Configured roster, console receipts and player authorization service added; next: capability-limited Cata MultiBot bridge, integrated lifecycle/permission check and creation |
 | 3. Class/spec coverage | Extend donor profiles, roles, rest, loot, dispels, interrupts, pets and recovery against Cata data |
 | 4. Autonomous population | Bounded RandomPlayerbotMgr login/logout, ownerless behavior, travel/RPG/quests and persistence |
 | 5. Dungeon and ecosystem features | Encounter strategies, tank leadership/one-dungeon clear, wider addon features and optional modules |
@@ -136,6 +214,33 @@ The inspected local MultiBot Chatless addon was
 `1da05982e478cb00e0b6c87314afe7e0e9653ffb`. Refresh upstream before porting.
 Its WotLK interface 30300 and MBOT HELLO/HELLO_ACK protocol require Cata
 adaptation. Map the current addon/server contract together.
+
+Local implementation now has a default-off native Cata addon seam and initial
+HELLO/PING/authorized active ROSTER replies. The bridge reference was refreshed
+2026-09-29 and remains at the pin above. ALT_ROSTER_V1 and BOT_LIFECYCLE_V1
+are advertised only when the validated player lifecycle service is enabled.
+Other capabilities remain absent. Managed lifecycle
+request/poll endpoints are now mapped to native receipts with bounded mutation
+replay/rate protection (2026-09-30); native completion and authorization still
+need the bundled runtime check. Authorized managed ALT_ROSTER frames are implemented
+with donor count/truncation boundaries and query limits. Next map donor gameplay
+extensions onto existing services; do not invent a parallel
+wire protocol. Basic follow/stay/attack/stop controls now use the donor's
+normal whisper/party/raid chat path with subgroup and per-bot authorization.
+COMBAT and POSITION are strategy/disperse endpoints, not replacements for that
+path. The addon upstream was refreshed to
+`1eac0d9106b8cdf0a79da3974ee1f516f8ca3fbc` on 2026-09-30; client adaptation
+should use this pin rather than the earlier local addon snapshot.
+An isolated candidate now applies the module's portable Cata compatibility
+patch (interface/events/prefix registration/library order/macro icons); Lua 5.1 syntax and mocked donor
+Comm checks passed. The donor main attack alias is accepted server-side. No
+existing addon was overwritten. The installed candidate passed startup and
+basic Stay/Follow/Attack; managed roster/lifecycle validation,
+capability mapping and class/spec/talent-data adaptation remain pending.
+Keep the server/module portable through native C++/CMake and the addon through
+Git/Lua/client APIs. Local PowerShell harnesses are not runtime requirements.
+A Linux build and all 109 automated tests passed at the infrastructure milestone.
+Neither that result nor Windows/Lua evidence certifies Linux server runtime.
 
 First implement handshake/capabilities, authorized roster/presence and existing
 follow/stay/attack/stop controls. Add connect/disconnect when the managed
@@ -182,5 +287,6 @@ publication history through ordinary follow-up commits.
 The latest local runtime evidence is
 `build/playerbot-smoke-20260929-111951` (ignored, not distributed). The
 [release-check record](NEXT_MIXED_PARTY_TEST.md) explains its scope.
-The core README pins the corresponding published module revision. Runtime data,
+The core README pins its matching module revision; check the reference guide and
+actual Git state to distinguish local work from published checkpoints. Runtime data,
 credentials and historical private Git snapshots stay outside publication.

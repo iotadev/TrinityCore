@@ -1,6 +1,8 @@
 param([Parameter(Mandatory)][ValidateNotNullOrEmpty()][string]$Seed,
     [Parameter(Mandatory)][ValidateNotNullOrEmpty()][string]$MySqlHome,
-    [string]$BuildDirectory = 'build/bin/RelWithDebInfo', [string]$DataDirectory, [string]$ClassDumpDirectory, [switch]$SkipBot, [switch]$ModuleConfig,
+    [string]$BuildDirectory = 'build/bin/RelWithDebInfo', [string]$DataDirectory, [string]$ClassDumpDirectory, [string]$SeedRepository, [switch]$SkipBot, [switch]$ModuleConfig,
+    [switch]$CheckFactory, [switch]$CheckManagedClient, [switch]$ReuseManagedClientFixture,
+    [ValidatePattern('^[A-Za-z0-9]{3,16}$')][string]$ManagedClientPassword,
     [switch]$Interactive,
     [switch]$CheckRosterOnly,
     [ValidateRange(0, 600)][int]$IdleSeconds = 125,
@@ -16,6 +18,14 @@ param([Parameter(Mandatory)][ValidateNotNullOrEmpty()][string]$Seed,
 # PB-00/PB-01/PB-02 proofs against a COPY of a disposable, cleanly stopped database.
 # Never use an existing server installation or a live database as the seed.
 $ErrorActionPreference = 'Stop'
+if (($ReuseManagedClientFixture -or $ManagedClientPassword) -and -not $CheckManagedClient) { throw 'Managed client options require -CheckManagedClient.' }
+if ($CheckManagedClient) {
+    if ($CheckFactory -or $SkipBot -or $CheckFullParty -or $CheckCombat -or $CheckTwoBots -or $PrepareClassFixture -or $Interactive -or $CheckClientCollision -or $CheckFollow -or $CheckAdmissionMatrix -or $CheckAdmissionRejects -or $CheckPendingLoad -or $CheckDrainTimeout -or $CheckPersistence -or $CheckDuplicateStart -or $CheckRosterOnly) {
+        throw '-CheckManagedClient must run separately from other scenarios.'
+    }
+    # Reuse the existing localhost auth/world setup, not the follow-test body.
+    $CheckFollow = $true
+}
 if ($Interactive -and -not $CheckFullParty) { throw '-Interactive currently requires -CheckFullParty.' }
 if ($MixedParty -and -not $CheckFullParty) { throw '-MixedParty requires -CheckFullParty.' }
 if ($ClassDumpDirectory -and (-not $MixedParty -or $ReuseFullPartyFixture)) { throw '-ClassDumpDirectory requires -MixedParty without -ReuseFullPartyFixture.' }
@@ -27,8 +37,16 @@ $built = Resolve-TestDirectory $BuildDirectory $repo 'BuildDirectory'
 Assert-TestFiles $mysqlHome @('bin/mysql.exe','bin/mysqld.exe','bin/libcrypto-3-x64.dll','bin/libssl-3-x64.dll') 'MySqlHome'
 Assert-TestFiles $built @('worldserver.exe') 'BuildDirectory'
 if ($DataDirectory) { $gameData = Resolve-TestDirectory $DataDirectory $repo 'DataDirectory' }
-$allowPlayerbotSeed = $CheckCombat -or $SkipBot -or $CheckTwoBots -or $CheckFullParty -or $PrepareClassFixture
-$seedPath = Resolve-TestSeed $Seed $repo -AllowPlayerbot:$allowPlayerbotSeed
+$allowPlayerbotSeed = $CheckCombat -or $SkipBot -or $CheckTwoBots -or $CheckFullParty -or $PrepareClassFixture -or $CheckFactory -or $CheckManagedClient
+$seedRoot = $repo
+if ($SeedRepository) {
+    $seedRoot = Resolve-TestDirectory $SeedRepository $repo 'SeedRepository'
+    Assert-TestFiles $seedRoot @('CMakeLists.txt','contrib/local/test-environment.ps1') 'SeedRepository'
+}
+$seedPath = Resolve-TestSeed $Seed $seedRoot -AllowPlayerbot:$allowPlayerbotSeed
+if ($CheckFactory -and ($SkipBot -or $CheckFullParty -or $CheckCombat -or $CheckTwoBots -or $PrepareClassFixture -or $CheckPersistence -or $CheckPendingLoad -or $CheckAdmissionMatrix -or $CheckFollow -or $CheckClientCollision -or $CheckDrainTimeout -or $CheckAdmissionRejects -or $CheckDuplicateStart -or $CheckRosterOnly -or $Interactive)) {
+    throw '-CheckFactory must run separately from other lifecycle/client scenarios.'
+}
 if ($ClassDumpDirectory) {
     $classDumpSource = Resolve-TestDirectory $ClassDumpDirectory $repo 'ClassDumpDirectory'
     $buildRoot = [IO.Path]::GetFullPath((Join-Path $repo 'build'))
@@ -128,11 +146,12 @@ function Invoke-TestSql([string]$sql) {
     return $stdout.Result.Trim()
 }
 
-function Send-WorldCommand([string]$command) {
+function Send-WorldCommand([string]$command, [switch]$Sensitive) {
     if ($worldWorker.Process.HasExited) { throw 'Worldserver exited before command.' }
     $worldWorker.Process.StandardInput.WriteLine($command)
     $worldWorker.Process.StandardInput.Flush()
-    Write-Host "Sent world command: $command"
+    if ($Sensitive) { Write-Host 'Sent private test-account setup command (arguments omitted).' }
+    else { Write-Host "Sent world command: $command" }
 }
 
 function Write-TestWorldConfig([string]$text) {
@@ -207,6 +226,11 @@ try {
     $config = [regex]::Replace($config, '(?m)^LogsDir\s*=.*$', 'LogsDir = "' + $logsDir + '"')
     if ($CheckFollow -or $CheckCombat -or $CheckFullParty -or $PrepareClassFixture) {
         $config = [regex]::Replace($config, '(?m)^WorldServerPort\s*=.*$', 'WorldServerPort = 8085')
+    }
+    if ($CheckFactory) {
+        $config = [regex]::Replace($config, '(?m)^WorldServerPort\s*=.*$', 'WorldServerPort = 18085')
+        $config = [regex]::Replace($config, '(?m)^Playerbots\.(Factory|Managed)\.[^\r\n]*\r?\n?', '')
+        $config += "`r`nPlayerbots.Factory.InspectionEnabled = 1`r`nPlayerbots.Factory.Enabled = 0`r`nPlayerbots.Managed.Enabled = 0`r`n"
     }
     if ($CheckClientCollision -or $CheckFollow -or $CheckCombat -or $CheckFullParty -or $PrepareClassFixture) {
         $authConfig = [IO.File]::ReadAllText((Join-Path $seedPath 'authserver.conf'))
@@ -386,7 +410,7 @@ try {
     }
     # A prior disposable stage can already contain generated settings.
     $config = [regex]::Replace($config, '(?m)^Playerbots\.Dev\.(Enabled|AccountId[2-4]?|CharacterGuid[2-4]?)\s*=.*\r?\n?', '')
-    $config += "`r`nPlayerbots.Dev.Enabled = $([int](-not $PrepareClassFixture))`r`nPlayerbots.Dev.AccountId = $accountId`r`nPlayerbots.Dev.CharacterGuid = $characterGuid`r`n"
+    $config += "`r`nPlayerbots.Dev.Enabled = $([int](-not ($PrepareClassFixture -or $CheckManagedClient)))`r`nPlayerbots.Dev.AccountId = $accountId`r`nPlayerbots.Dev.CharacterGuid = $characterGuid`r`n"
     if ($EngineWarriorBuff) {
         $config = [regex]::Replace($config, '(?m)^Playerbots\.Dev\.EngineWarriorBuff\s*=.*\r?\n?', '')
         $config += "Playerbots.Dev.EngineWarriorBuff = 1`r`n"
@@ -414,12 +438,114 @@ try {
     $worldWorker = Start-Worker (Join-Path $stage 'worldserver.exe') @('-c','worldserver.conf') 'world'
     $serverLog = Join-Path $stage 'logs/Server.log'
     Wait-For { (Test-Path $serverLog) -and (Select-String -LiteralPath $serverLog -Pattern 'worldserver.*ready\.\.\.' -Quiet) } 240 'worldserver readiness'
+    if ($CheckFactory) {
+        $worldOutput = Join-Path $stage 'world.stdout.log'
+        function Assert-FactoryCommand([string]$command, [string]$expected) {
+            $before = @(Select-String -LiteralPath $worldOutput -SimpleMatch $expected).Count
+            Send-WorldCommand $command
+            Wait-For {
+                if (@(Select-String -LiteralPath $worldOutput -SimpleMatch $expected).Count -gt $before) { return $true }
+                if ($command -like '* managed factory-status *') { Send-WorldCommand $command }
+                return $false
+            } 30 "factory response: $expected"
+        }
+        if ((Invoke-TestSql "SELECT COUNT(*) FROM auth.account WHERE username='PBFACTORY';") -ne '0') { throw 'Factory fixture account already exists; choose a fresh stopped seed.' }
+        $testPassword = [Convert]::ToHexString([Security.Cryptography.RandomNumberGenerator]::GetBytes(8))
+        Send-WorldCommand "account create PBFACTORY $testPassword" -Sensitive
+        $testPassword = $null
+        Wait-For { (Invoke-TestSql "SELECT COUNT(*) FROM auth.account WHERE username='PBFACTORY';") -eq '1' } 30 'native factory fixture account creation'
+        $factoryAccount = [uint32](Invoke-TestSql "SELECT id FROM auth.account WHERE username='PBFACTORY';")
+        [void](Invoke-TestSql "UPDATE auth.account SET expansion=3 WHERE id=$factoryAccount;")
+        Assert-FactoryCommand "server playerbotdev managed enroll $factoryAccount Factorymage 10 8 0" 'factory disabled, shutting down'
+        if ((Invoke-TestSql "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='auth' AND table_name='playerbots_factory_ownership';") -eq '0') {
+            Assert-FactoryCommand "server playerbotdev managed inspect $factoryAccount" 'optional factory ownership schema is missing or incompatible'
+        }
+        [void](Invoke-TestSql ('USE auth;' + [IO.File]::ReadAllText((Join-Path $repo 'modules/mod-playerbots/sql/auth/001_factory_ownership.sql'))))
+        Assert-FactoryCommand "server playerbotdev managed inspect $factoryAccount" 'no explicit dedicated-account ownership evidence exists'
+        $config = [regex]::Replace($config, '(?m)^Playerbots\.Factory\.Enabled\s*=.*$', 'Playerbots.Factory.Enabled = 1')
+        Write-TestWorldConfig $config
+        Send-WorldCommand 'reload config'
+        Assert-FactoryCommand "server playerbotdev managed enroll $accountId Unownedbot 10 8 0" 'account is ineligible, already enrolled or has recorded characters'
+        [void](Invoke-TestSql "INSERT INTO auth.account_access (AccountID,SecurityLevel,RealmID) VALUES ($factoryAccount,1,-1);")
+        Assert-FactoryCommand "server playerbotdev managed enroll $factoryAccount Factorymage 10 8 0" 'account is ineligible, already enrolled or has recorded characters'
+        [void](Invoke-TestSql "DELETE FROM auth.account_access WHERE AccountID=$factoryAccount AND SecurityLevel=1 AND RealmID=-1;")
+        [void](Invoke-TestSql "UPDATE auth.account SET online=1 WHERE id=$factoryAccount;")
+        Assert-FactoryCommand "server playerbotdev managed enroll $factoryAccount Factorymage 10 8 0" 'account is ineligible, already enrolled or has recorded characters'
+        [void](Invoke-TestSql "UPDATE auth.account SET online=0 WHERE id=$factoryAccount;")
+        Assert-FactoryCommand "server playerbotdev managed enroll $factoryAccount Factorymage 10 8 0" 'enrollment submitted; use factory-status'
+        Wait-For { (Invoke-TestSql "SELECT COUNT(*) FROM auth.playerbots_factory_ownership WHERE account_id=$factoryAccount AND character_name='Factorymage';") -eq '1' } 30 'committed enrollment row'
+        Assert-FactoryCommand "server playerbotdev managed factory-status $factoryAccount" 'enrolled; no character created'
+        Assert-FactoryCommand "server playerbotdev managed inspect $factoryAccount" 'owned empty account; native creation would be required'
+        Assert-FactoryCommand "server playerbotdev managed provision $factoryAccount" 'native character creation submitted'
+        Wait-For { (Invoke-TestSql "SELECT COUNT(*) FROM characters.characters WHERE account=$factoryAccount AND name='Factorymage' AND race=10 AND class=8 AND gender=0;") -eq '1' } 60 'native factory character persistence'
+        $factoryGuid = [uint32](Invoke-TestSql "SELECT guid FROM characters.characters WHERE account=$factoryAccount;")
+        Assert-FactoryCommand "server playerbotdev managed factory-status $factoryAccount" "provisioned GUID $factoryGuid;"
+        $fingerprintSql = "SELECT guid,account,name,race,class,gender,level,map,position_x,position_y,position_z FROM characters.characters WHERE account=$factoryAccount;"
+        $beforeReuse = Invoke-TestSql $fingerprintSql
+        if ((Invoke-TestSql "SELECT numchars FROM auth.realmcharacters WHERE acctid=$factoryAccount AND realmid=1;") -ne '1') { throw 'Initial provisioning did not reconcile the native realm count.' }
+        [void](Invoke-TestSql "UPDATE auth.realmcharacters SET numchars=0 WHERE acctid=$factoryAccount AND realmid=1;")
+        Assert-FactoryCommand "server playerbotdev managed provision $factoryAccount" 'existing identity accounting recovery submitted'
+        Assert-FactoryCommand "server playerbotdev managed factory-status $factoryAccount" "provisioned GUID $factoryGuid;"
+        if ((Invoke-TestSql $fingerprintSql) -ne $beforeReuse -or (Invoke-TestSql "SELECT COUNT(*) FROM characters.characters WHERE account=$factoryAccount;") -ne '1') { throw 'Rerun changed or duplicated the native character.' }
+        if ((Invoke-TestSql "SELECT numchars FROM auth.realmcharacters WHERE acctid=$factoryAccount AND realmid=1;") -ne '1') { throw 'Rerun did not repair stale realm accounting.' }
+        [void](Invoke-TestSql "UPDATE auth.playerbots_factory_ownership SET character_name='Otherintent' WHERE account_id=$factoryAccount;")
+        Assert-FactoryCommand "server playerbotdev managed provision $factoryAccount" 'character identity or name conflicts with the stored intent'
+        [void](Invoke-TestSql "UPDATE auth.playerbots_factory_ownership SET character_name='Factorymage' WHERE account_id=$factoryAccount;")
+        $config = [regex]::Replace($config, '(?m)^Playerbots\.Managed\.Enabled\s*=.*$', 'Playerbots.Managed.Enabled = 1')
+        $config += "`r`nPlayerbots.Managed.Characters = $($factoryAccount):$factoryGuid`r`n"
+        Write-TestWorldConfig $config
+        Send-WorldCommand 'reload config'
+        Assert-FactoryCommand "server playerbotdev managed start $factoryGuid" 'admitted; character loading is asynchronous'
+        Wait-For { (Invoke-TestSql "SELECT online FROM characters.characters WHERE guid=$factoryGuid;") -eq '1' } 60 'new factory Mage native login'
+        Assert-FactoryCommand "server playerbotdev managed stop $factoryGuid" 'exit requested'
+        Wait-For { (Invoke-TestSql "SELECT online FROM characters.characters WHERE guid=$factoryGuid;") -eq '0' } 60 'new factory Mage save/logout'
+        if ((Invoke-TestSql "SELECT online FROM auth.account WHERE id=$factoryAccount;") -ne '0') { throw 'Creation/recovery left an account-online flag set.' }
+        if ((Invoke-TestSql "SELECT COUNT(*) FROM auth.playerbots_factory_ownership WHERE account_id=$accountId;") -ne '0') { throw 'Rejected fixture account was adopted.' }
+        Send-WorldCommand 'server shutdown 0'
+        if (-not $worldWorker.Process.WaitForExit(60000) -or $worldWorker.Process.ExitCode -ne 0) { throw 'Factory smoke worldserver did not stop cleanly.' }
+        Write-Host 'Factory gates, explicit enrollment, native create, exact reuse/accounting repair, conflict rejection, managed login/save/logout and clean shutdown passed. Client creation/gameplay were not tested.'
+        return
+    }
     if ($CheckClientCollision -or $CheckFollow -or $CheckCombat -or $CheckFullParty -or $PrepareClassFixture) {
         $authWorker = Start-Worker (Join-Path $stage 'authserver.exe') @('-c','authserver.conf') 'auth'
         Start-Sleep -Seconds 2
         if ($authWorker.Process.HasExited) { throw 'Authserver exited before the client-collision check.' }
         $authSocket = [Net.Sockets.TcpClient]::new()
         try { $authSocket.Connect('127.0.0.1', $(if ($CheckFollow -or $CheckCombat -or $CheckFullParty -or $PrepareClassFixture) { 3724 } else { 13724 })) } finally { $authSocket.Dispose() }
+    }
+    if ($CheckManagedClient) {
+        $existingClient = (Invoke-TestSql "SELECT COUNT(*) FROM auth.account WHERE username='PBCLIENT';") -eq '1'
+        if ($existingClient -and -not $ReuseManagedClientFixture) { throw 'Existing PBCLIENT requires explicit -ReuseManagedClientFixture.' }
+        $clientSecret = if ($ManagedClientPassword) { $ManagedClientPassword } else { 'Bot' + [Convert]::ToHexString([Security.Cryptography.RandomNumberGenerator]::GetBytes(3)) }
+        if ($existingClient) { Send-WorldCommand "account set password PBCLIENT $clientSecret $clientSecret" -Sensitive }
+        else { Send-WorldCommand "account create PBCLIENT $clientSecret" -Sensitive }
+        Wait-For { (Invoke-TestSql "SELECT COUNT(*) FROM auth.account WHERE username='PBCLIENT';") -eq '1' } 30 'ordinary client account creation'
+        $clientAccount = [uint32](Invoke-TestSql "SELECT id FROM auth.account WHERE username='PBCLIENT';")
+        if ((Invoke-TestSql "SELECT COUNT(*) FROM auth.account_access WHERE AccountID=$clientAccount;") -ne '0') { throw 'Client account must have ordinary player security.' }
+        [void](Invoke-TestSql "UPDATE auth.account SET expansion=3 WHERE id=$clientAccount;")
+        $config = [regex]::Replace($config, '(?m)^Playerbots\.(Managed|MultiBot)\.[^\r\n]*\r?\n?', '')
+        $config += "`r`nPlayerbots.Managed.Enabled = 1`r`nPlayerbots.Managed.AllowPlayerControl = 1`r`nPlayerbots.Managed.Characters = ${accountId}:$characterGuid`r`nPlayerbots.Managed.AccountLinks = ${clientAccount}:$accountId`r`nPlayerbots.MultiBot.Enabled = 1`r`n"
+        Write-TestWorldConfig $config
+        Send-WorldCommand 'reload config'
+        Send-WorldCommand 'revive Testone'
+        [IO.File]::WriteAllText((Join-Path $stage 'test-login.txt'), "Disposable local realm only`r`nAccount: PBCLIENT`r`nPassword: $clientSecret`r`nCreate a Blood Elf Warrior named Lifecycletst. Log in with MultiBot enabled.`r`nIn Units, connect Testone, disconnect, then reconnect. Finally log out.`r`n", [Text.UTF8Encoding]::new($false))
+        Write-Host "MANAGED CLIENT READY: private login and instructions are in $stage/test-login.txt"
+        Wait-For { (Invoke-TestSql "SELECT COUNT(*) FROM characters.characters WHERE account=$clientAccount AND name='Lifecycletst' AND race=10 AND class=1;") -eq '1' } 600 'ordinary client character creation'
+        Wait-For { (Invoke-TestSql "SELECT numchars FROM auth.realmcharacters WHERE acctid=$clientAccount AND realmid=1;") -eq '1' } 30 'ordinary client realm accounting'
+        Write-Host 'Ordinary client character creation/accounting confirmed. Connect Testone from MultiBot Units.'
+        Wait-For { (Invoke-TestSql "SELECT online FROM characters.characters WHERE guid=$characterGuid;") -eq '1' } 600 'addon-managed connect completion'
+        Write-Host 'Managed bot online. Disconnect Testone from MultiBot Units.'
+        Wait-For { (Invoke-TestSql "SELECT online FROM characters.characters WHERE guid=$characterGuid;") -eq '0' } 600 'addon-managed disconnect completion'
+        Wait-For { (Invoke-TestSql "SELECT online FROM auth.account WHERE id=$accountId;") -eq '0' } 30 'bot account cleared after disconnect'
+        Write-Host 'Managed bot disconnected. Reconnect Testone, then log out of the human character.'
+        Wait-For { (Invoke-TestSql "SELECT online FROM characters.characters WHERE guid=$characterGuid;") -eq '1' } 600 'addon-managed reconnect completion'
+        Wait-For { (Invoke-TestSql "SELECT online FROM characters.characters WHERE account=$clientAccount AND name='Lifecycletst';") -eq '0' } 600 'human logout'
+        Send-WorldCommand "server playerbotdev managed stop $characterGuid"
+        Wait-For { (Invoke-TestSql "SELECT online FROM characters.characters WHERE guid=$characterGuid;") -eq '0' } 60 'managed cleanup logout'
+        Send-WorldCommand 'server shutdown 0'
+        if (-not $worldWorker.Process.WaitForExit(60000) -or $worldWorker.Process.ExitCode -ne 0) { throw 'Managed-client worldserver did not stop cleanly.' }
+        Write-Host 'Ordinary client create/accounting and linked ordinary-player addon connect/disconnect/reconnect passed; clean shutdown.'
+        return
     }
     if ($PrepareClassFixture) {
         if ((Invoke-TestSql "SELECT COUNT(*) FROM auth.account WHERE username='PB01HUMAN';") -ne '1') { throw 'Class preparation requires the disposable PB01HUMAN account.' }

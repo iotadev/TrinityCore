@@ -25,6 +25,8 @@
 #include <boost/circular_buffer_fwd.hpp>
 #include <map>
 #include <memory>
+#include "ServerOriginPlayerbotLifecycle.h"
+#include "NativeCharacterCreationReceipt.h"
 #include <unordered_map>
 
 #include "AsyncCallbackProcessor.h"
@@ -417,6 +419,13 @@ class CharacterCreateInfo
     friend class WorldSession;
     friend class Player;
 
+    public:
+        CharacterCreateInfo() = default;
+        CharacterCreateInfo(std::string name, uint8 race, uint8 classId, uint8 gender,
+            uint8 skin, uint8 face, uint8 hairStyle, uint8 hairColor, uint8 facialHair)
+            : Name(std::move(name)), Race(race), Class(classId), Gender(gender), Skin(skin),
+              Face(face), HairStyle(hairStyle), HairColor(hairColor), FacialHair(facialHair) { }
+
     protected:
         /// User specified variables
         std::string Name;
@@ -476,7 +485,8 @@ struct PacketCounter
 enum class WorldSessionOrigin : uint8
 {
     Client,
-    Server
+    Server,
+    CharacterCreation
 };
 
 enum class WorldSessionInitializationState : uint8
@@ -495,8 +505,10 @@ class TC_GAME_API WorldSession
         ~WorldSession();
 
         bool IsServerOrigin() const { return _origin == WorldSessionOrigin::Server; }
+        bool IsCharacterCreationContext() const { return _origin == WorldSessionOrigin::CharacterCreation; }
         static bool IsSupportedServerOriginClass(uint8 playerClass);
         ObjectGuid GetServerOriginCharacterGuid() const { return _serverOriginCharacterGuid; }
+        std::shared_ptr<ServerOriginPlayerbotLifecycle> GetServerOriginLifecycle() const { return _serverOriginLifecycle; }
         WorldSessionInitializationState GetInitializationState() const { return _initializationState; }
         void RequestServerOriginExit();
         void RequestServerOriginFollow(uint32 characterGuidLow);
@@ -726,7 +738,11 @@ class TC_GAME_API WorldSession
 
         void HandleRandomizeCharNameOpcode(WorldPackets::Character::GenerateRandomCharacterName& packet);
         void HandleReorderCharacters(WorldPacket& recvData);
-        void SendCharCreate(ResponseCodes result);
+        // Native typed entry point; copies the request and preserves all normal
+        // validation/save callbacks. Null means busy/ineligible, not queued.
+        // Owner must process its native callbacks; this is not a provisioning session.
+        std::shared_ptr<NativeCharacterCreationReceipt> BeginCharacterCreation(CharacterCreateInfo const& request);
+        void SendCharCreate(ResponseCodes result, ObjectGuid characterGuid = ObjectGuid::Empty, bool completeRequest = true);
         void SendCharDelete(ResponseCodes result);
         void SendCharRename(ResponseCodes result, CharacterRenameInfo const* renameInfo);
         void SendCharCustomize(ResponseCodes result, CharacterCustomizeInfo const* customizeInfo);
@@ -1327,6 +1343,12 @@ class TC_GAME_API WorldSession
 
     private:
         void ProcessQueryCallbacks();
+        void CreateCharacter(std::shared_ptr<CharacterCreateInfo> createInfo);
+        void AdvanceCharacterCreationAccounting();
+        std::shared_ptr<NativeCharacterCreationReceipt> _characterCreationReceipt;
+        bool _provisioningRealmCountSubmitted = false;
+        bool _provisioningRealmCountFinished = false;
+        bool _provisioningAccountingStarted = false;
 
         QueryCallbackProcessor _queryProcessor;
         AsyncCallbackProcessor<TransactionCallback> _transactionCallbacks;
@@ -1458,6 +1480,7 @@ class TC_GAME_API WorldSession
         ObjectGuid const _serverOriginCharacterGuid;
         WorldSessionInitializationState _initializationState;
         bool _serverOriginExitRequested;
+        std::shared_ptr<ServerOriginPlayerbotLifecycle> _serverOriginLifecycle;
         std::unique_ptr<PlayerbotSessionHooks> _playerbotHooks;
 
         WorldSession(WorldSession const& right) = delete;

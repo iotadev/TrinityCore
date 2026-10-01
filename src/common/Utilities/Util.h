@@ -21,6 +21,7 @@
 #include "Define.h"
 #include "Errors.h"
 #include "Optional.h"
+#include <array>
 #include <string>
 #include <sstream>
 #include <vector>

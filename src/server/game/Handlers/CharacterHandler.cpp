@@ -325,6 +325,28 @@ void WorldSession::HandleCharCreateOpcode(WorldPacket& recvData)
              >> createInfo->FacialHair
              >> createInfo->OutfitId;
 
+    if (!BeginCharacterCreation(*createInfo))
+        SendCharCreate(CHAR_CREATE_ERROR, ObjectGuid::Empty, false);
+}
+
+std::shared_ptr<NativeCharacterCreationReceipt> WorldSession::BeginCharacterCreation(CharacterCreateInfo const& request)
+{
+    // Do not let an overlapping request overwrite the completion of an earlier
+    // native transaction. Active bot sessions are not character-factory workers.
+    if (_player || PlayerLoading() || IsServerOrigin() ||
+        (_characterCreationReceipt && _characterCreationReceipt->GetState() == NativeCharacterCreationReceipt::State::Pending))
+        return nullptr;
+
+    auto createInfo = std::make_shared<CharacterCreateInfo>(request);
+    createInfo->CharCount = 0;
+    _characterCreationReceipt = std::make_shared<NativeCharacterCreationReceipt>(IsCharacterCreationContext());
+    auto receipt = _characterCreationReceipt;
+    CreateCharacter(std::move(createInfo));
+    return receipt;
+}
+
+void WorldSession::CreateCharacter(std::shared_ptr<CharacterCreateInfo> createInfo)
+{
     if (!HasPermission(rbac::RBAC_PERM_SKIP_CHECK_CHARACTER_CREATION_TEAMMASK))
     {
         if (uint32 mask = sWorld->getIntConfig(CONFIG_CHARACTER_CREATING_DISABLED))
@@ -630,7 +652,18 @@ void WorldSession::HandleCharCreateOpcode(WorldPacket& recvData)
             stmt->setUInt32(2, realm.Id.Realm);
             trans->Append(stmt);
 
-            LoginDatabase.CommitTransaction(trans);
+            if (IsCharacterCreationContext())
+            {
+                _provisioningRealmCountSubmitted = true;
+                AddTransactionCallback(LoginDatabase.AsyncCommitTransaction(trans)).AfterComplete([this](bool /*success*/)
+                {
+                    // Wait for the original write to finish before repairing its
+                    // count, regardless of whether it succeeded. No queue draining.
+                    _provisioningRealmCountFinished = true;
+                });
+            }
+            else
+                LoginDatabase.CommitTransaction(trans);
 
             AddTransactionCallback(CharacterDatabase.AsyncCommitTransaction(characterTransaction)).AfterComplete([this, newChar = std::move(newChar)](bool success)
             {
@@ -640,7 +673,7 @@ void WorldSession::HandleCharCreateOpcode(WorldPacket& recvData)
                     sScriptMgr->OnPlayerCreate(newChar.get());
                     sCharacterCache->AddCharacterCacheEntry(newChar->GetGUID(), GetAccountId(), newChar->GetName(), newChar->GetByteValue(PLAYER_BYTES_3, PLAYER_BYTES_3_OFFSET_GENDER), newChar->getRace(), newChar->getClass(), newChar->getLevel());
 
-                    SendCharCreate(CHAR_CREATE_SUCCESS);
+                    SendCharCreate(CHAR_CREATE_SUCCESS, newChar->GetGUID());
                 }
                 else
                     SendCharCreate(CHAR_CREATE_ERROR);
@@ -804,7 +837,10 @@ void WorldSession::AbortLogin(WorldPackets::Character::LoginFailureReason reason
 
     m_playerLoading.Clear();
     if (IsServerOrigin())
+    {
+        _serverOriginLifecycle->LoginFailed();
         RequestServerOriginExit();
+    }
     SendPacket(WorldPackets::Character::CharacterLoginFailed(reason).Write());
 }
 
@@ -829,7 +865,10 @@ void WorldSession::HandlePlayerLogin(LoginQueryHolder const& holder)
         delete pCurrChar;                                   // delete it manually
         m_playerLoading.Clear();
         if (IsServerOrigin())
+        {
+            _serverOriginLifecycle->LoginFailed();
             RequestServerOriginExit();
+        }
         return;
     }
 
@@ -1138,6 +1177,8 @@ void WorldSession::HandlePlayerLogin(LoginQueryHolder const& holder)
     sScriptMgr->OnPlayerLogin(pCurrChar, firstLogin);
 
     TC_METRIC_EVENT("player_events", "Login", pCurrChar->GetName());
+    if (_serverOriginLifecycle)
+        _serverOriginLifecycle->LoginCompleted();
 }
 
 void WorldSession::HandleSetFactionAtWar(WorldPacket& recvData)
@@ -2279,11 +2320,46 @@ void WorldSession::HandleCharFactionOrRaceChangeCallback(std::shared_ptr<Charact
     SendCharFactionChange(RESPONSE_SUCCESS, factionChangeInfo.get());
 }
 
-void WorldSession::SendCharCreate(ResponseCodes result)
+void WorldSession::SendCharCreate(ResponseCodes result, ObjectGuid characterGuid, bool completeRequest)
 {
+    if (completeRequest && _characterCreationReceipt)
+        _characterCreationReceipt->Complete(uint32(result), result == CHAR_CREATE_SUCCESS, characterGuid.GetCounter());
     WorldPackets::Character::CreateChar packet;
     packet.Code = result;
-    SendPacket(packet.Write());
+    if (!IsCharacterCreationContext())
+        SendPacket(packet.Write());
+}
+
+void WorldSession::AdvanceCharacterCreationAccounting()
+{
+    if (!IsCharacterCreationContext() || !_characterCreationReceipt || _provisioningAccountingStarted ||
+        _characterCreationReceipt->GetState() != NativeCharacterCreationReceipt::State::Reconciling ||
+        (_provisioningRealmCountSubmitted && !_provisioningRealmCountFinished))
+        return;
+
+    _provisioningAccountingStarted = true;
+    CharacterDatabasePreparedStatement* countStmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_CHARACTER_PROVISIONING_COUNT);
+    countStmt->setUInt32(0, GetAccountId());
+    _queryProcessor.AddCallback(CharacterDatabase.AsyncQuery(countStmt).WithPreparedCallback([this](PreparedQueryResult result)
+    {
+        // An aggregate without GROUP BY returns one row even for zero characters.
+        // Missing result is a failure, never an inferred zero count.
+        if (!result || (*result)[0].GetUInt64() > 255)
+        {
+            _characterCreationReceipt->AccountingCompleted(false);
+            return;
+        }
+        LoginDatabaseTransaction trans = LoginDatabase.BeginTransaction();
+        LoginDatabasePreparedStatement* stmt = LoginDatabase.GetPreparedStatement(LOGIN_REP_REALM_CHARACTERS);
+        stmt->setUInt32(0, uint32((*result)[0].GetUInt64()));
+        stmt->setUInt32(1, GetAccountId());
+        stmt->setUInt32(2, realm.Id.Realm);
+        trans->Append(stmt);
+        AddTransactionCallback(LoginDatabase.AsyncCommitTransaction(trans)).AfterComplete([this](bool success)
+        {
+            _characterCreationReceipt->AccountingCompleted(success);
+        });
+    }));
 }
 
 void WorldSession::SendCharDelete(ResponseCodes result)

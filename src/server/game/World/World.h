@@ -35,12 +35,15 @@
 #include <chrono>
 #include <list>
 #include <map>
+#include <memory>
 #include <unordered_map>
 #include <vector>
 
 class Player;
 class WorldPacket;
 class WorldSession;
+class CharacterCreateInfo;
+class NativeCharacterCreationReceipt;
 class WorldSocket;
 struct Realm;
 
@@ -623,6 +626,14 @@ class TC_GAME_API World
         // World-thread-only admission for an authorized identity. Callers own
         // authorization; this path validates account/character ownership.
         bool TryStartServerOriginPlayerbot(uint32 accountId, ObjectGuid characterGuid);
+        // World-thread-only. Caller establishes dedicated-account ownership and
+        // feature policy. Contexts never enter the active-session registry.
+        std::shared_ptr<NativeCharacterCreationReceipt const> BeginCharacterProvisioning(
+            uint32 accountId, CharacterCreateInfo const& request);
+        // Exact existing identity, accounting only; no duplicate create/save.
+        std::shared_ptr<NativeCharacterCreationReceipt const> BeginCharacterReconciliation(
+            uint32 accountId, ObjectGuid characterGuid);
+        bool IsCharacterProvisioningAccount(uint32 accountId) const;
         bool RequestStopServerOriginPlayerbot(ObjectGuid characterGuid);
         // World-thread-only lookup for an already admitted server-origin bot.
         WorldSession* FindServerOriginPlayerbot(ObjectGuid characterGuid) const;
@@ -881,6 +892,8 @@ class TC_GAME_API World
         time_t mail_timer_expires;
 
         SessionMap m_sessions;
+        std::unordered_map<uint32, std::unique_ptr<WorldSession>> _characterProvisioningContexts;
+        WorldSession* CreateCharacterProvisioningContext(uint32 accountId);
         typedef std::unordered_map<uint32, time_t> DisconnectMap;
         DisconnectMap m_disconnects;
         uint32 m_maxActiveSessionCount;

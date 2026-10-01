@@ -86,6 +86,41 @@ to another fixture is allowed. Optional `-DataDirectory` updates the cloned serv
 configuration when extracted data has moved. Seed database directories must not
 be links. These helpers have not been validated on other operating systems.
 
+Playerbot lifecycle scenarios may explicitly set `-SeedRepository` to another
+source checkout containing the stopped fixture. Its checkout files are checked,
+and the seed must still be a direct, non-linked smoke directory under that
+checkout's build directory with credentials and clean-shutdown evidence. Only
+the new clone under the current checkout is started or modified.
+
+`playerbot-lifecycle-smoke.ps1 -CheckFactory -ModuleConfig` runs a server-only
+factory batch with the shared seed/MySQL/build inputs. It covers disabled and
+missing-evidence/schema gates, ineligible accounts, explicit enrollment, native
+creation, exact reuse with stale realm-count repair, conflicting intent rejection
+and explicit managed admission/save/logout. Temporary account credentials are
+random and omitted from command narration. Fixture config reloads replace keys
+rather than introducing duplicate INI keys; readiness polls the native receipt.
+This is an optional Windows test helper, not a server runtime dependency. It
+does not test client character creation, addon UI or gameplay, and does not change
+production databases/configuration or existing native service installations.
+
+`playerbot-lifecycle-smoke.ps1 -CheckManagedClient -ModuleConfig` uses the same
+validated stopped seed and current binaries for a bundled client check. It starts
+only cloned localhost services, creates a fresh ordinary player account with a
+random client-compatible password, and writes private instructions to the ignored
+`test-login.txt`. Create the requested Blood Elf Warrior through the real client,
+then use MultiBot Units to connect, disconnect and reconnect the configured bot.
+The helper checks native character/realm accounting and each online transition;
+no GM override or console connect stands in for addon completion. Log out to
+finish cleanup. This scenario has a ten-minute deadline for each human step.
+Use the valid character name `Lifecycletst`. An optional `-ManagedClientPassword`
+accepts a disposable 3-16-character alphanumeric password; never pass a real
+account credential. `-ReuseManagedClientFixture` explicitly permits the existing
+ordinary test account in a cleanly stopped fixture so a saved test character can
+be reused. This does not repeat its original character-creation interaction.
+In MultiBot, select My Bots under Roster Filters; left-click an offline bot to
+connect and right-click an online bot to disconnect. The 2026-10-01 bundled
+check passed native accounting, addon lifecycle and clean shutdown.
+
 For the AHBot and Playerbots examples below, define the shared inputs first:
 
 ```powershell

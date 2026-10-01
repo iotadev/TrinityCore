@@ -35,6 +35,18 @@ it only after the replacement has passed a clean configure and build.
 - **Retirement test:** Keep the tests; retire the implementation patch when
   upstream provides equivalent success/failure semantics.
 
+## Explicit standard-array include
+
+- **Status:** Active; Linux no-PCH worldserver/authserver/tests-common build and
+  all 109 automated tests passed on 2026-10-01.
+- **File:** `src/common/Utilities/Util.h`
+- **Local change:** Include `<array>` directly for the public `std::array`
+  templates rather than relying on a precompiled or transitive header.
+- **Reason:** GCC 11 compilation without PCH exposed an undeclared `std::array`.
+  This is an include-dependency correction, not a gameplay or API change.
+- **Retirement test:** The upstream header must declare its standard-library
+  dependencies and compile independently of PCH before retiring the local fix.
+
 ## Common-test build wiring
 
 - **Status:** Active
