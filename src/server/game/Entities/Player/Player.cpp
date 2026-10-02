@@ -8352,8 +8352,16 @@ void Player::SendLootRelease(ObjectGuid guid) const
     SendDirectMessage(packet.Write());
 }
 
-void Player::SendLoot(ObjectGuid guid, LootType loot_type)
+void Player::SendLoot(ObjectGuid guid, LootType loot_type, WorldPackets::Loot::LootResponse* response)
 {
+    if (response)
+    {
+        response->Owner.Clear();
+        response->AcquireReason = 0;
+        response->Coins = 0;
+        response->Items.clear();
+        response->Currencies.clear();
+    }
     if (ObjectGuid lguid = GetLootGUID())
         m_session->DoLootRelease(lguid);
 
@@ -8728,7 +8736,10 @@ void Player::SendLoot(ObjectGuid guid, LootType loot_type)
     {
         SetLootGUID(guid);
 
-        WorldPackets::Loot::LootResponse packet;
+        // Optional typed result for socketless native callers. All permissions,
+        // generation and looter registration remain in this ordinary path.
+        WorldPackets::Loot::LootResponse localPacket;
+        WorldPackets::Loot::LootResponse& packet = response ? *response : localPacket;
         packet.Owner = guid;
         packet.AcquireReason = loot_type;
         loot->BuildLootResponse(packet, this, permission);

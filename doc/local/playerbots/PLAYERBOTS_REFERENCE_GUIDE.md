@@ -1,6 +1,11 @@
 # Playerbots reference and porting decisions
 
 Reference snapshot reviewed 2026-09-29; status wording reconciled 2026-10-01.
+The shared-state audit refreshed primary upstream master on 2026-10-02 to
+`037c01418b5d01506917a3db9b44fd56ac5f965c`, comparing the changed AI file against
+`7bae1b5c58c76a0aa20381155edc08096d1485b2`. Its separate-engine pattern remains
+unchanged. Historical comparison rows below retain their original review pins;
+this refresh does not relabel earlier imports as current-master ports.
 Use with the [roadmap](PLAYERBOTS_PORT_ROADMAP.md)
 and [implementation packets](PLAYERBOTS_WORK_PACKETS.md). This guide records
 reference policy, not another implementation plan or evidence of feature parity.

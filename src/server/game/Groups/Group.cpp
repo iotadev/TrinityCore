@@ -1076,10 +1076,11 @@ void Group::GroupLoot(Loot* loot, WorldObject* pLootedObject)
                     r->totalPlayersRolling++;
                     RollVote vote = member->GetPassOnGroupLoot() ? PASS : NOT_EMITED_YET;
                     if (!CanRollOnItem(*i, member))
-                    {
                         vote = PASS;
+                    // Count every initial PASS exactly once, including the
+                    // native opt-out preference (also used by server-origin bots).
+                    if (vote == PASS)
                         ++r->totalPass;
-                    }
                     r->playerVote[member->GetGUID()] = vote;
                 }
             }
@@ -1153,7 +1154,10 @@ void Group::GroupLoot(Loot* loot, WorldObject* pLootedObject)
             if (member->IsAtGroupRewardDistance(pLootedObject) && i->AllowedForPlayer(member))
             {
                 r->totalPlayersRolling++;
-                r->playerVote[member->GetGUID()] = NOT_EMITED_YET;
+                RollVote vote = member->GetPassOnGroupLoot() ? PASS : NOT_EMITED_YET;
+                if (vote == PASS)
+                    ++r->totalPass;
+                r->playerVote[member->GetGUID()] = vote;
             }
         }
 
@@ -1282,7 +1286,10 @@ void Group::NeedBeforeGreed(Loot* loot, WorldObject* lootedObject)
             if (playerToRoll->IsAtGroupRewardDistance(lootedObject) && i->AllowedForPlayer(playerToRoll))
             {
                 r->totalPlayersRolling++;
-                r->playerVote[playerToRoll->GetGUID()] = NOT_EMITED_YET;
+                RollVote vote = playerToRoll->GetPassOnGroupLoot() ? PASS : NOT_EMITED_YET;
+                if (vote == PASS)
+                    ++r->totalPass;
+                r->playerVote[playerToRoll->GetGUID()] = vote;
             }
         }
 

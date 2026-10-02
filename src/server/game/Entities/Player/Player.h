@@ -48,6 +48,7 @@ struct ItemExtendedCostEntry;
 struct ItemSetEffect;
 struct ItemTemplate;
 struct Loot;
+namespace WorldPackets { namespace Loot { class LootResponse; } }
 struct Mail;
 struct PlayerTalent;
 struct PlayerTalentInfo;
@@ -2037,7 +2038,7 @@ class TC_GAME_API Player : public Unit, public GridObject<Player>
         std::unique_ptr<PlayerMenu> PlayerTalkClass;
         std::vector<std::unique_ptr<ItemSetEffect>> ItemSetEff;
 
-        void SendLoot(ObjectGuid guid, LootType loot_type);
+        void SendLoot(ObjectGuid guid, LootType loot_type, WorldPackets::Loot::LootResponse* response = nullptr);
         void SendLootError(ObjectGuid guid, LootError error) const;
         void SendLootRelease(ObjectGuid guid) const;
         void SendNotifyLootItemRemoved(uint8 lootSlot) const;

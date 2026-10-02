@@ -3,7 +3,7 @@ param([Parameter(Mandatory)][ValidateNotNullOrEmpty()][string]$Seed,
     [string]$BuildDirectory = 'build/bin/RelWithDebInfo', [string]$DataDirectory, [string]$ClassDumpDirectory, [string]$SeedRepository, [switch]$SkipBot, [switch]$ModuleConfig,
     [switch]$CheckFactory, [switch]$CheckManagedClient, [switch]$ReuseManagedClientFixture,
     [ValidatePattern('^[A-Za-z0-9]{3,16}$')][string]$ManagedClientPassword,
-    [switch]$Interactive,
+    [switch]$Interactive, [switch]$RecoveryLoot, [switch]$RoleFixture,
     [switch]$CheckRosterOnly,
     [ValidateRange(0, 600)][int]$IdleSeconds = 125,
     [ValidateRange(0, 600)][int]$PostStopSeconds = 0,
@@ -28,6 +28,8 @@ if ($CheckManagedClient) {
 }
 if ($Interactive -and -not $CheckFullParty) { throw '-Interactive currently requires -CheckFullParty.' }
 if ($MixedParty -and -not $CheckFullParty) { throw '-MixedParty requires -CheckFullParty.' }
+if ($RecoveryLoot -and (-not $MixedParty -or -not $Interactive)) { throw '-RecoveryLoot requires the interactive mixed-party scenario.' }
+if ($RoleFixture -and (-not $MixedParty -or -not $ModuleConfig)) { throw '-RoleFixture requires -MixedParty and -ModuleConfig.' }
 if ($ClassDumpDirectory -and (-not $MixedParty -or $ReuseFullPartyFixture)) { throw '-ClassDumpDirectory requires -MixedParty without -ReuseFullPartyFixture.' }
 if ($CheckRosterOnly -and (-not $CheckFullParty -or $Interactive)) { throw '-CheckRosterOnly requires -CheckFullParty without -Interactive.' }
 $repo = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
@@ -69,7 +71,10 @@ Assert-TestFiles $seedPath @('libcrypto-4-x64.dll','libssl-4-x64.dll','legacy.dl
 if ($CheckTwoBots -and ($SkipBot -or $CheckCombat -or $CheckFollow -or $CheckClientCollision -or $CheckDuplicateStart -or $CheckAdmissionRejects -or $CheckAdmissionMatrix -or $CheckPersistence -or $CheckPendingLoad -or $CheckDrainTimeout)) { throw '-CheckTwoBots must run without another lifecycle-check switch.' }
 if ($CheckFullParty -and ($SkipBot -or $CheckCombat -or $CheckFollow -or $CheckTwoBots -or $CheckClientCollision -or $CheckDuplicateStart -or $CheckAdmissionRejects -or $CheckAdmissionMatrix -or $CheckPersistence -or $CheckPendingLoad -or $CheckDrainTimeout)) { throw '-CheckFullParty must run without another lifecycle-check switch.' }
 if ($PrepareClassFixture -and ($SkipBot -or $CheckCombat -or $CheckFollow -or $CheckTwoBots -or $CheckFullParty -or $CheckClientCollision -or $CheckDuplicateStart -or $CheckAdmissionRejects -or $CheckAdmissionMatrix -or $CheckPersistence -or $CheckPendingLoad -or $CheckDrainTimeout -or $ReuseFullPartyFixture)) { throw '-PrepareClassFixture must run without another lifecycle-check switch.' }
-if ($ReuseFullPartyFixture -and (-not $CheckFullParty -or -not (Test-Path -LiteralPath (Join-Path $seedPath 'world-prep.stdout.log')))) { throw '-ReuseFullPartyFixture requires -CheckFullParty and a stopped fixture with recorded preparation.' }
+# Replayed copies need not retain the first preparation process's stdout.
+# Resolve-TestSeed checks clean shutdown; the copied DB is checked below for
+# each offline account/class/GUID and for fixture-owned group membership.
+if ($ReuseFullPartyFixture -and -not $CheckFullParty) { throw '-ReuseFullPartyFixture requires -CheckFullParty.' }
 if ($CheckDrainTimeout -and ($CheckPendingLoad -or $SkipBot -or $CheckAdmissionRejects -or $PendingTable -ne 'character_aura')) {
     throw 'The drain-timeout check requires only -CheckDrainTimeout -PendingTable character_aura.'
 }
@@ -88,7 +93,10 @@ if ($WaitForLeash -and -not $CheckCombat) { throw '-WaitForLeash requires -Check
 if ($ObserveFollow -and -not $CheckCombat) { throw '-ObserveFollow requires -CheckCombat.' }
 if ($PlayAssist -and -not $CheckCombat) { throw '-PlayAssist requires -CheckCombat.' }
 if ($CheckDungeonJoin -and (-not $CheckCombat -or $BotLevel -ne 20)) { throw '-CheckDungeonJoin requires -CheckCombat -BotLevel 20.' }
-if ($EngineWarriorBuff -and (-not $ModuleConfig -or -not $CheckCombat -or -not $PlayAssist -or $BotLevel -ne 20)) { throw '-EngineWarriorBuff requires -ModuleConfig -CheckCombat -PlayAssist -BotLevel 20.' }
+if ($EngineWarriorBuff -and (-not $ModuleConfig -or
+    -not (($CheckCombat -and $PlayAssist -and $BotLevel -eq 20) -or ($CheckFullParty -and $MixedParty)))) {
+    throw '-EngineWarriorBuff requires module config and either the level-20 assist scenario or a mixed-party scenario.'
+}
 if (($EngineWarriorCombat -or $EngineMageCombat -or $EnginePriestHeal) -and (-not $ModuleConfig -or -not $CheckFullParty -or -not $MixedParty)) {
     throw 'Warrior/Mage/Priest combat engine checks require -ModuleConfig -CheckFullParty -MixedParty.'
 }
@@ -158,8 +166,8 @@ function Write-TestWorldConfig([string]$text) {
     if ($ModuleConfig) {
         $moduleDirectory = Join-Path $stage 'modules'
         [void](New-Item -ItemType Directory -Path $moduleDirectory -Force)
-        $botLines = [regex]::Matches($text, '(?m)^Playerbots\.Dev\.[^\r\n]*') | ForEach-Object Value
-        $text = [regex]::Replace($text, '(?m)^Playerbots\.Dev\.[^\r\n]*\r?\n?', '')
+        $botLines = [regex]::Matches($text, '(?m)^Playerbots\.[^\r\n]*') | ForEach-Object Value
+        $text = [regex]::Replace($text, '(?m)^Playerbots\.[^\r\n]*\r?\n?', '')
         $text = [regex]::Replace($text, '(?m)^Modules\.ConfigDirectory\s*=.*\r?\n?', '')
         $text += "`r`nModules.ConfigDirectory = modules`r`n"
         [IO.File]::WriteAllText((Join-Path $moduleDirectory 'playerbots.conf'), "[playerbots]`r`n" + ($botLines -join "`r`n") + "`r`n", [Text.UTF8Encoding]::new($false))
@@ -297,6 +305,20 @@ try {
         $humanFields = $human -split "`t"
         if ($humanFields.Count -ne 4 -or $humanFields[3] -ne '0') { throw "Full-party fixture needs an offline human character named Test; found: $human" }
         $humanGuid = [uint32]$humanFields[1]
+        if (($RecoveryLoot -or $RoleFixture) -and $ReuseFullPartyFixture) {
+            # The copied database may retain the previous test party. Normalize
+            # only groups wholly owned by these five offline fixture characters.
+            $fixtureRows = @((Invoke-TestSql "SELECT guid FROM characters.characters WHERE name IN ('Test','Testone','Testtwo','Botmage','Botpriest') AND online=0;") -split "`r?`n")
+            if ($fixtureRows.Count -ne 5 -or @($fixtureRows | Where-Object { $_ -notmatch '^\d+$' }).Count) { throw 'Recovery fixture requires exactly five offline test characters.' }
+            $fixtureIds = $fixtureRows -join ','
+            $groupRows = (Invoke-TestSql "SELECT DISTINCT guid FROM characters.group_member WHERE memberGuid IN ($fixtureIds);") -split "`r?`n"
+            foreach ($groupId in $groupRows) {
+                if (-not $groupId) { continue }
+                if ($groupId -notmatch '^\d+$' -or (Invoke-TestSql "SELECT COUNT(*) FROM characters.group_member WHERE guid=$groupId AND memberGuid NOT IN ($fixtureIds);") -ne '0') { throw 'Refusing to normalize a party containing a non-fixture member.' }
+                [void](Invoke-TestSql "START TRANSACTION; DELETE FROM characters.group_instance WHERE guid=$groupId; DELETE FROM characters.group_member WHERE guid=$groupId; DELETE FROM characters.groups WHERE guid=$groupId; COMMIT;")
+            }
+            Write-Host 'Copied recovery fixture only: retired test-owned party membership normalized.'
+        }
         if ((Invoke-TestSql "SELECT COUNT(*) FROM characters.group_member WHERE memberGuid IN ($characterGuid,$humanGuid);") -ne '0') { throw 'Full-party seed already has party membership; use a pre-party disposable seed.' }
         $botHomebind = Invoke-TestSql "SELECT mapId, posX, posY, posZ FROM characters.character_homebind WHERE guid=$characterGuid;"
         $botHomebindFields = $botHomebind -split "`t"
@@ -428,10 +450,21 @@ try {
         $config += "Playerbots.Dev.EnginePriestHeal = 1`r`n"
     }
     if ($CheckTwoBots) { $config += "Playerbots.Dev.AccountId2 = $secondAccountId`r`nPlayerbots.Dev.CharacterGuid2 = $secondGuid`r`n" }
+    if ($RecoveryLoot) {
+        foreach ($setting in @('Dev.EnginePartyBuff','Rest.Enabled','Mage.Armor.Enabled','Loot.PassOnGroupLoot','Loot.Corpses.Enabled')) {
+            $pattern = '(?m)^Playerbots\.' + [regex]::Escape($setting) + '\s*=.*\r?\n?'
+            $config = [regex]::Replace($config, $pattern, '')
+            $config += "Playerbots.$setting = 1`r`n"
+        }
+    }
     if ($CheckFullParty) {
         foreach ($bot in $fullPartyBots | Where-Object Slot -gt 1) {
             $config += "Playerbots.Dev.AccountId$($bot.Slot) = $($bot.Account)`r`nPlayerbots.Dev.CharacterGuid$($bot.Slot) = $($bot.Guid)`r`n"
         }
+    }
+    if ($RoleFixture) {
+        $config = [regex]::Replace($config, '(?m)^Playerbots\.Dev\.Fixture20\.Enabled\s*=.*\r?\n?', '')
+        $config += "Playerbots.Dev.Fixture20.Enabled = 1`r`n"
     }
     Write-TestWorldConfig $config
 
@@ -881,7 +914,17 @@ try {
         return
     }
     if ($CheckFullParty) {
+        if ($RecoveryLoot -or $RoleFixture) {
+            # Reused seeds may contain level-one Warriors. Normalize only the
+            # copied offline roster through the native character-level command.
+            foreach ($bot in $fullPartyBots) {
+                Send-WorldCommand "character level $($bot.Name) 20"
+                $botGuid = $bot.Guid
+                Wait-For { (Invoke-TestSql "SELECT level FROM characters.characters WHERE guid=$botGuid AND online=0;") -eq '20' } 30 "recovery fixture slot $($bot.Slot) level 20"
+            }
+        }
         foreach ($bot in $fullPartyBots) {
+            if ($RoleFixture) { Send-WorldCommand "tele name $($bot.Name) Tranquillien" }
             Send-WorldCommand "server playerbotdev slot $($bot.Slot) start"
             $botGuid = $bot.Guid
             Wait-For { (Invoke-TestSql "SELECT online, map FROM characters.characters WHERE guid=$botGuid;") -eq "1$([char]9)530" } 90 "bot slot $($bot.Slot) online on outdoor map"
@@ -894,11 +937,42 @@ try {
                 @(Select-String -LiteralPath $worldOutput -SimpleMatch $slotPattern).Count -gt $before
             } 30 "bot slot $($bot.Slot) session ready"
         }
+        if ($RoleFixture) {
+            Send-WorldCommand 'tele name Test Tranquillien'
+            foreach ($bot in $fullPartyBots) {
+                Send-WorldCommand "server playerbotdev slot $($bot.Slot) fixture20"
+                $fixtureName = $bot.Name
+                Wait-For {
+                    if (Select-String -LiteralPath $serverLog -Pattern "PB-FIXTURE: $fixtureName (incomplete|rejected)" -Quiet) {
+                        throw "Native role fixture for $fixtureName was rejected or incomplete; inspect PB-FIXTURE diagnostics."
+                    }
+                    Select-String -LiteralPath $serverLog -SimpleMatch "PB-FIXTURE: $fixtureName prepared;" -Quiet
+                } 30 "native role/equipment/consumable preparation for $fixtureName"
+            }
+            Write-Host 'Native level-20 Protection/Arms/Frost/Holy fixture provisioned. Saves were requested; verify persisted rows after shutdown.'
+        }
         if ($CheckRosterOnly) {
             foreach ($bot in $fullPartyBots) { Send-WorldCommand "server playerbotdev slot $($bot.Slot) stop" }
             foreach ($bot in $fullPartyBots) {
                 $botGuid = $bot.Guid
                 Wait-For { (Invoke-TestSql "SELECT online FROM characters.characters WHERE guid=$botGuid;") -eq '0' } 60 "bot slot $($bot.Slot) logout"
+            }
+            if ($RoleFixture) {
+                foreach ($bot in $fullPartyBots) {
+                    $botGuid = $bot.Guid
+                    $tree = switch ($bot.Slot) { 1 {845}; 2 {746}; 3 {823}; 4 {813} }
+                    $weapon = switch ($bot.Slot) { 1 {4765}; 2 {4817}; default {1405} }
+                    Wait-For {
+                        $role = Invoke-TestSql "SELECT COUNT(*) FROM characters.characters WHERE guid=$botGuid AND online=0 AND level=20 AND talentTree LIKE '$tree %';"
+                        $talents = Invoke-TestSql "SELECT COUNT(*) FROM characters.character_talent WHERE guid=$botGuid;"
+                        $equipped = Invoke-TestSql "SELECT COUNT(*) FROM characters.character_inventory v JOIN characters.item_instance i ON i.guid=v.item WHERE v.guid=$botGuid AND v.bag=0 AND v.slot=15 AND i.itemEntry=$weapon;"
+                        $food = Invoke-TestSql "SELECT COALESCE(SUM(i.count),0) FROM characters.character_inventory v JOIN characters.item_instance i ON i.guid=v.item WHERE v.guid=$botGuid AND i.itemEntry=3770;"
+                        $water = if ($bot.Slot -ge 3) { Invoke-TestSql "SELECT COALESCE(SUM(i.count),0) FROM characters.character_inventory v JOIN characters.item_instance i ON i.guid=v.item WHERE v.guid=$botGuid AND i.itemEntry=1205;" } else {'20'}
+                        $shield = if ($bot.Slot -eq 1) { Invoke-TestSql "SELECT COUNT(*) FROM characters.character_inventory v JOIN characters.item_instance i ON i.guid=v.item WHERE v.guid=$botGuid AND v.bag=0 AND v.slot=16 AND i.itemEntry=1202;" } else {'1'}
+                        $role -eq '1' -and [int]$talents -gt 0 -and $equipped -eq '1' -and [int]$food -ge 20 -and [int]$water -ge 20 -and $shield -eq '1'
+                    } 60 "persisted role, equipment and consumables for $($bot.Name)"
+                }
+                Write-Host 'Saved role/talents, equipped weapons/shield and carried food/water verified for all four bots.'
             }
             Send-WorldCommand 'server shutdown 0'
             if (-not $worldWorker.Process.WaitForExit(60 * 1000) -or $worldWorker.Process.ExitCode -ne 0) {
@@ -917,11 +991,14 @@ try {
                 Wait-For { (Select-String -LiteralPath $serverLog -SimpleMatch $followLine -Quiet) } 20 "bot slot $($bot.Slot) following Test"
             }
         }
-        Write-Host "Invite $($fullPartyBots.Name -join ', ') to your party. Then use .tele RagefireChasm and walk through the portal."
+        if ($RoleFixture) { Write-Host "Role equipment and consumables are ready. Invite $($fullPartyBots.Name -join ', '); use the fixed durable enemies in doc/local/playerbots/PLAYERBOTS_PARTY_FIXTURE.md." }
+        elseif ($RecoveryLoot) { Write-Host "Invite $($fullPartyBots.Name -join ', ') to your party. Stay outdoors; provision food/water and the Mage armor spell as described in doc/local/playerbots/NEXT_MIXED_PARTY_TEST.md." }
+        else { Write-Host "Invite $($fullPartyBots.Name -join ', ') to your party. Then use .tele RagefireChasm and walk through the portal." }
         foreach ($bot in $fullPartyBots) {
             $joinLine = "PB-PARTY: $($bot.Name) joined followed leader"
             Wait-ForHuman { (Select-String -LiteralPath $serverLog -SimpleMatch $joinLine -Quiet) } 240 "bot slot $($bot.Slot) party join"
         }
+        if (-not $RecoveryLoot) {
         Wait-ForHuman { (Invoke-TestSql 'SELECT COUNT(*) FROM characters.group_instance gi JOIN characters.instance i ON i.id=gi.instance WHERE i.map=389;') -ne '0' } 300 'full party bound to Ragefire Chasm'
         Start-Sleep -Seconds 3
         foreach ($bot in $fullPartyBots) { Send-WorldCommand "server playerbotdev slot $($bot.Slot) joininstance 389" }
@@ -929,8 +1006,10 @@ try {
             $enteredLine = "PB-PARTY: $($bot.Name) entered dungeon map 389 instance"
             Wait-For { (Select-String -LiteralPath $serverLog -SimpleMatch $enteredLine -Quiet) } 90 "bot slot $($bot.Slot) dungeon entry"
         }
+        }
         if ($MixedParty) {
-            Write-Host 'MIXED PARTY IN DUNGEON: make a few normal pulls; observe Warrior threat, Mage damage and Priest healing.'
+            if ($RecoveryLoot) { Write-Host 'RECOVERY/LOOT PARTY READY: outdoor pulls are sufficient. Observe native loot and carried food/drink; armor requires a learned eligible spell. Log out when finished.' }
+            else { Write-Host 'MIXED PARTY IN DUNGEON: make a few normal pulls; observe Warrior threat, Mage damage and Priest healing.' }
             Write-Host 'If convenient, observe one party-member death/resurrection and one party removal/re-invite. No forced wipe is required. Log out when finished.'
         }
         else { Write-Host 'FULL PARTY IN DUNGEON: make several normal pulls, then deliberately push into a wipe or death. Observe follow, assist, and what each bot does after death.' }

@@ -31,14 +31,19 @@ compatible. See the [module integration guide](modules/README.md) for the build
 boundary. The modules are independently selectable with
 `-DMODULE_MOD_PLAYERBOTS=ON|OFF` and `-DMODULE_MOD_AHBOT=ON|OFF`.
 
-For the 2026-10-01 player-controlled infrastructure milestone, use these matching
-module revisions. The bundled Windows client lifecycle check passed, and the
-Linux server build with both modules enabled passed all 109 automated tests.
-Linux realm runtime and full donor gameplay parity remain unverified.
+For the 2026-10-02 shared-gameplay-state candidate, use the matching module
+revisions below. Windows passed 195 registered checks; the regenerated Linux
+build ran 195 Catch cases, 194 passed and one failed as expected. Native
+level-20 party fixture preparation and saved-data verification passed.
+The integrated client transition check is deferred, so this candidate is not
+yet a gameplay-accepted milestone. Linux realm runtime and full donor parity
+remain unverified. AHBot implementation is unchanged by this Playerbots batch.
+The earlier accepted [infrastructure milestone](doc/local/playerbots/PLAYERBOTS_INFRASTRUCTURE_MILESTONE.md)
+retains its historical revisions and client lifecycle evidence.
 
 | Module | Repository | Commit |
 | --- | --- | --- |
-| Playerbots | [iotadev/cata-playerbots](https://github.com/iotadev/cata-playerbots) | `70014ce88cb2d99a370894baef7a32876ff94a50` |
+| Playerbots | [iotadev/cata-playerbots](https://github.com/iotadev/cata-playerbots) | `e6591786a21e36bb5bdea55168bf63fafc095c38` |
 | AHBot | [iotadev/cata-ahbot](https://github.com/iotadev/cata-ahbot) | `ac2064e91b02af6b345b492a3f3453614b0087ab` |
 
 Clone each repository into the shown `modules/` directory and check out its
