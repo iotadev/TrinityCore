@@ -10,8 +10,8 @@ Earlier detail remains in the existing dated histories.
 
 - Published infrastructure: module `70014ce`, core `92f41cf`. The shared-state
   operational pair is module `520051d`, core `6b81a13e38`. The newer coordination/
-  recovery module milestone is committed locally as `9f99b27`; this core handoff
-  pins that revision. No publication push has been made.
+  recovery module milestone is published on GitHub main as `9f99b27`; this core
+  publication handoff pins that revision.
 - Windows and Linux modules-enabled worldserver builds passed 324/324 checks;
   Windows modules-disabled passed 19. Addon reader/timer mock passed. Rebuild
   only when source changes justify it. Linux realm runtime remains untested.

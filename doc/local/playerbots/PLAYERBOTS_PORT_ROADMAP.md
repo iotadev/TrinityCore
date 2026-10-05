@@ -66,7 +66,7 @@ evidence-based remedy for this incident.
   client session is available. Record actual failures as one corrective batch.
 - The basic operational replay passed. The matching local milestone is module
   `520051d`, core `6b81a13e38`. The newer coordination/recovery module milestone
-  is committed locally as `9f99b27`, with its evidence and harness in this core
+  is published on GitHub main as `9f99b27`, with its evidence and harness in this core
   update. Remaining optional observations can join later dungeon
   sessions; record their limits when publishing.
 - Continue the human-led dungeon attempt under tank/healer pressure. Fix observed
