@@ -64,8 +64,10 @@ evidence-based remedy for this incident.
   group strategy ACK/STATE refresh/restore together in the dungeon continuation.
   Preserve the stopped fixture until a
   client session is available. Record actual failures as one corrective batch.
-- The basic operational replay passed and the matching milestone is being
-  committed locally. Remaining optional observations can join later dungeon
+- The basic operational replay passed. The matching local milestone is module
+  `520051d`, core `6b81a13e38`. The newer coordination/recovery module milestone
+  is committed locally as `9f99b27`, with its evidence and harness in this core
+  update. Remaining optional observations can join later dungeon
   sessions; record their limits when publishing.
 - Continue the human-led dungeon attempt under tank/healer pressure. Fix observed
   coordination failures through their owning donor behavior. Autonomous account
@@ -73,11 +75,20 @@ evidence-based remedy for this incident.
 
 ## Next two batches
 
-1. Close the shared-state operational milestone: Windows/Linux builds, outdoor
-   engagement and corrected Ragefire entry/trash combat passed. Record remaining
-   optional observations as deferred, review and commit the matching pair.
-2. Extend role coordination and recovery through one sustained human-led dungeon
-   attempt. Port larger donor feature groups where the attempt exposes a gap;
+1. Extend donor role coordination and recovery after the committed operational
+   milestone. Local slices add optional healer mana conservation and consistent
+   tank/front versus non-tank/rear chase decisions during aggro transitions,
+   plus donor food/drink metadata consistency and resource-based rest completion.
+   This batch builds on Windows/Linux and passes 324 tests on each platform;
+   source validation is complete. A longer Ragefire session observed basic
+   healing/aggro recovery, eating/drinking and owner-death hold/follow resumption,
+   with clean shutdown. Quantitative mana savings and tank orientation remain open.
+   Source/test qualification and sustained native behavior remain separate.
+2. Port donor main-tank coordination as a bounded shared-role/target-selection
+   batch. Compare explicit main-tank assignment and multi-tank target retention
+   against native Cata group flags without changing session/thread authority.
+   Continue the human-led dungeon toward a clear rather than repeating the
+   accepted recovery check. Port larger donor feature groups where it exposes a gap;
    keep full class/spec coverage, pets, travel and autonomy on separate tracks.
 
 Working rules: keep optional features default-off, retain immutable upstream pins

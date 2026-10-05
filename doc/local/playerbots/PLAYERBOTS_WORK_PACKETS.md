@@ -9,9 +9,10 @@ Earlier detail remains in the existing dated histories.
 ## Current position
 
 - Published infrastructure: module `70014ce`, core `92f41cf`. The shared-state
-  operational module milestone is committed locally as `520051d`; the matching
-  core milestone pins that revision. No publication push has been made.
-- Windows and Linux modules-enabled worldserver builds passed 318/318 checks;
+  operational pair is module `520051d`, core `6b81a13e38`. The newer coordination/
+  recovery module milestone is committed locally as `9f99b27`; this core handoff
+  pins that revision. No publication push has been made.
+- Windows and Linux modules-enabled worldserver builds passed 324/324 checks;
   Windows modules-disabled passed 19. Addon reader/timer mock passed. Rebuild
   only when source changes justify it. Linux realm runtime remains untested.
 - October 4 outdoor replay observed four-bot engagement, role actions, return
@@ -25,7 +26,41 @@ Earlier detail remains in the existing dated histories.
   and native corpse opening. The player reported working behavior; services
   stopped cleanly and no assertion appeared. Basic party operation is accepted.
 
-## Next bounded batch
+## Coordination/recovery milestone
+
+The first post-milestone slice ports donor healer mana conservation from refreshed
+master `037c01418b5d01506917a3db9b44fd56ac5f965c`. Optional module-local
+`Playerbots.Healing.SaveMana.Enabled` defaults off. Both healing paths apply
+the donor percentage/efficiency/tank rules at native candidate eligibility.
+Source and three boundary tests are local; Windows worldserver/tests-common built
+and all 321 registered tests passed.
+The previous 318-check Linux result belongs to the committed milestone, not this
+new slice. Observe conservation in a later sustained-party session; no isolated
+client check is needed. See module PORTING.md for policy differences and limits.
+
+The next local slice unifies initial/reach/ongoing melee chase with existing
+role-aware movement eligibility. A designated tank keeps front positioning
+while recovering aggro; a non-tank victim also stays front until aggro is lost.
+This is a consistency correction to the donor-backed Cata movement adapter,
+not a verified fix for the historical Warrior idle observation. One regression
+was added; Windows worldserver/tests-common built and all 322 tests passed.
+The complete batch subsequently passed Linux's 324-check suite. Detailed tank
+orientation remains unconfirmed; basic party operation passed the later replay.
+
+Recovery execution and ready-check inventory counting now share donor food/drink
+subclass and item-category translation. Active rest records the chosen recovery
+mode so drinking completion uses mana even if the spell category differs from
+the item's on-use category. Two regressions cover translation and completion/reset;
+Windows and Linux worldserver/tests-common built and all 324 tests passed on each.
+Linux used the saved Ubuntu 22.04/GCC 11.4 normal-PCH build with refreshed module
+sources. Logs are local in `build/linux-coordination-20261005/`; the compiler
+container is stopped. The subsequent Ragefire replay confirmed visible eating/
+drinking and logged native drink starts for both casters, 48 accepted Priest heal
+casts and repeated tank aggro recovery. All four held on owner death and resumed
+following once the owner was alive nearby. The harness exited zero and test-owned
+services shut down cleanly. Quantitative mana savings and Priest resurrection
+were not established. Evidence: `build/playerbot-smoke-20261005-113123/`.
+Native item handling and regen remain unchanged.
 
 The corrected recipe adds `-DungeonFixture` alongside `-RecoveryLoot`.
 Recovery-only mode still stays outdoors. The current bot
@@ -41,12 +76,15 @@ combined recovery/dungeon dispatches and checks all four. Native entry passed
 the corrected client replay. Preserve the prepared roster and use the
 [fixture](PLAYERBOTS_PARTY_FIXTURE.md) recipe.
 
-Continue development with donor tank/healer coordination and recovery for a
-longer human-led dungeon. Measured healing, resource-pressure recovery, stop/resume,
-death/resurrection and addon aggregate ACK/STATE/restore were not established by
-this brief replay; observe them in the next useful party session. Optional spells,
-mounts and forced deaths are not separate prerequisites. Collect concrete failures
-into one donor-aligned corrective batch.
+## Next bounded batch
+
+Audit/port donor main-tank coordination: explicit main-tank assignment and
+multi-tank target retention, using native Cata group flags and the existing role/
+target-selection boundary. Keep session and map ownership unchanged. Continue
+the human-led dungeon toward a clear without repeating accepted basic recovery.
+Measured mana savings, detailed positioning, Priest resurrection, stop/resume and
+addon aggregate ACK/STATE/restore remain optional observations in useful sessions.
+Do not turn mounts, forced deaths or isolated spells into separate prerequisites.
 
 ## Working constraints
 

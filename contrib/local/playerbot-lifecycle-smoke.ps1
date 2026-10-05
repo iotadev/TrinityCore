@@ -4,6 +4,7 @@ param([Parameter(Mandatory)][ValidateNotNullOrEmpty()][string]$Seed,
     [switch]$CheckFactory, [switch]$CheckManagedClient, [switch]$ReuseManagedClientFixture,
     [ValidatePattern('^[A-Za-z0-9]{3,16}$')][string]$ManagedClientPassword,
     [switch]$Interactive, [switch]$RecoveryLoot, [switch]$RoleFixture, [switch]$StrategyFixture, [switch]$DungeonFixture,
+    [switch]$HealerSaveMana,
     [switch]$CheckRosterOnly,
     [switch]$CheckNearTeleport,
     [ValidateRange(0, 600)][int]$IdleSeconds = 125,
@@ -30,6 +31,7 @@ if ($CheckManagedClient) {
 if ($Interactive -and -not $CheckFullParty) { throw '-Interactive currently requires -CheckFullParty.' }
 if ($MixedParty -and -not $CheckFullParty) { throw '-MixedParty requires -CheckFullParty.' }
 if ($RecoveryLoot -and (-not $MixedParty -or -not $Interactive)) { throw '-RecoveryLoot requires the interactive mixed-party scenario.' }
+if ($HealerSaveMana -and (-not $RecoveryLoot -or -not $ModuleConfig -or -not $EnginePriestHeal)) { throw '-HealerSaveMana requires -RecoveryLoot -ModuleConfig -EnginePriestHeal.' }
 if ($DungeonFixture -and (-not $CheckFullParty -or -not $MixedParty -or -not $Interactive -or $CheckRosterOnly)) { throw '-DungeonFixture requires -CheckFullParty -MixedParty -Interactive and cannot use -CheckRosterOnly.' }
 if ($RoleFixture -and (-not $MixedParty -or -not $ModuleConfig)) { throw '-RoleFixture requires -MixedParty and -ModuleConfig.' }
 if ($StrategyFixture -and (-not $Interactive -or -not $MixedParty -or -not $ModuleConfig)) { throw '-StrategyFixture requires -Interactive, -MixedParty and -ModuleConfig.' }
@@ -460,6 +462,10 @@ try {
             $config = [regex]::Replace($config, $pattern, '')
             $config += "Playerbots.$setting = 1`r`n"
         }
+    }
+    if ($HealerSaveMana) {
+        $config = [regex]::Replace($config, '(?m)^Playerbots\.Healing\.SaveMana\.Enabled\s*=.*\r?\n?', '')
+        $config += "Playerbots.Healing.SaveMana.Enabled = 1`r`n"
     }
     if ($CheckFullParty) {
         foreach ($bot in $fullPartyBots | Where-Object Slot -gt 1) {

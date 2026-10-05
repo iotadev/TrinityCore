@@ -5,6 +5,35 @@ by the architecture audit; the outdoor replay below establishes partial gameplay
 acceptance, with sustained dungeon/support observations still open. It does
 not reopen accepted login/factory/module work.
 
+## Post-milestone coordination/recovery source validation — 2026-10-05
+
+The subsequent completed Ragefire session (`build/playerbot-smoke-20261005-113123`)
+has player-confirmed eventual eating/drinking. Console evidence records native
+drink starts for Botmage and Botpriest, 48 accepted Priest healing casts at the
+checkpoint and repeated Testone party-aggro recovery requests. No assertion/fatal
+match was present in that capture. Visible eating is player-reported; a food-start
+log was not captured at this checkpoint. Conservation was enabled in the copied
+test configuration, but its individual suppression decisions and quantitative
+mana savings were not measured. Final capture records 86 accepted Mage damage
+casts and 89 selected Warrior role/attack action matches. All four bots logged
+owner-death holding and subsequent nearby-alive follow resumption; this does not
+establish Priest resurrection. The harness exited zero after bot logout and
+worldserver shutdown. Test-owned auth/world/MySQL processes exited, and MySQL
+recorded normal shutdown completion. Detailed tank orientation remains unconfirmed.
+
+Optional healer mana conservation, consistent tank/front chase decisions and
+food/drink metadata/completion mode changes built worldserver/tests-common on
+Windows and Linux. Each platform passed all 324 registered tests. Linux used
+the existing Ubuntu 22.04/GCC 11.4 Release build, normal core/script PCH and
+two workers against a refreshed native-filesystem source copy. This is an
+uncommitted snapshot, not an exact published revision. Local configure/build/test
+logs are retained in ignored `build/linux-coordination-20261005/`.
+
+The isolated compiler container stopped after validation; game realms stayed
+stopped. These results do not add gameplay acceptance. Sustained conservation,
+positioning and native item recovery remain for the next useful party session;
+Linux realm runtime remains untested.
+
 ## Dungeon setup attempt — 2026-10-05
 
 The corrected replay below supersedes this setup failure for dedicated dungeon

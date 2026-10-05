@@ -16,6 +16,14 @@ The corrected branch passed parser/mock checks and the October 5 native replay.
 All four entered the party's instance; normal trash combat worked and the realm
 shut down cleanly. Longer support/recovery and optional strategy timing remain open.
 
+For the coordination/recovery batch, also pass `-HealerSaveMana` with
+`-ModuleConfig -EnginePriestHeal`. This enables conservation only in the copied
+test realm; the module's shipped default remains off. Use sustained, ordinary
+pulls and pause safely afterward. Look for visible healing under mana pressure,
+tank positioning during aggro changes and carried food/drink recovery. Lack of
+resource pressure is a deferred observation, not a failed test. No forced wipe,
+high-level spell grant or artificial health/mana edit is required.
+
 The outdoor engagement and group loot-removal queries already ran. Do not repeat
 them as isolated prerequisites. Continue with one human-led Ragefire session:
 
