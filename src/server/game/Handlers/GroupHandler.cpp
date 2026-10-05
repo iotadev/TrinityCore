@@ -31,6 +31,7 @@
 #include "SocialMgr.h"
 #include "SpellAuraEffects.h"
 #include "SpellAuras.h"
+#include "Timer.h"
 #include "Util.h"
 #include "Vehicle.h"
 #include "World.h"
@@ -745,12 +746,20 @@ void WorldSession::HandleRaidReadyCheckOpcode(WorldPacket& recvData)
             return;
         /********************/
 
+        uint32 started = getMSTime();
+        uint64 check = group->BeginPlayerbotReadyCheck(GetPlayer()->GetGUID(), started);
         // everything's fine, do it
         WorldPacket data(MSG_RAID_READY_CHECK, 8);
         data << GetPlayer()->GetGUID();
         group->BroadcastPacket(&data, false, -1);
 
         group->OfflineReadyCheck();
+        group->BroadcastWorker([&](Player* member)
+        {
+            if (member && member != GetPlayer() && member->GetSession())
+                member->GetSession()->RequestPlayerbotReadyCheck(uint64(group->GetGUID()), check,
+                    GetPlayer()->GetGUID().GetCounter(), started);
+        });
     }
     else                                                    // answer
     {
@@ -767,14 +776,9 @@ void WorldSession::HandleRaidReadyCheckOpcode(WorldPacket& recvData)
 
 void WorldSession::HandleRaidReadyCheckFinishedOpcode(WorldPacket& /*recvData*/)
 {
-    //Group* group = GetPlayer()->GetGroup();
-    //if (!group)
-    //    return;
-
-    //if (!group->IsLeader(GetPlayer()->GetGUID()) && !group->IsAssistant(GetPlayer()->GetGUID()))
-    //    return;
-
-    // Is any reaction need?
+    if (Group* group = GetPlayer()->GetGroup())
+        if (group->IsLeader(GetPlayer()->GetGUID()) || group->IsAssistant(GetPlayer()->GetGUID()))
+            group->FinishPlayerbotReadyCheck(); // Invalidate only server-origin queued replies.
 }
 
 /*this procedure handles clients CMSG_REQUEST_PARTY_MEMBER_STATS request*/

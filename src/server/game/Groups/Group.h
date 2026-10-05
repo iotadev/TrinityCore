@@ -356,6 +356,11 @@ class TC_GAME_API Group
         void BroadcastAddonMessagePacket(WorldPacket const* packet, const std::string& prefix, bool ignorePlayersInBGRaid, int group = -1, uint64 ignore = 0);
         void BroadcastReadyCheck(WorldPacket const* packet);
         void OfflineReadyCheck();
+        // World-thread-only identity for server-origin replies; ordinary client
+        // replies retain their existing protocol. No Group pointer crosses maps.
+        uint64 BeginPlayerbotReadyCheck(ObjectGuid initiator, uint32 now);
+        bool MatchesPlayerbotReadyCheck(uint64 check, ObjectGuid initiator, uint32 now) const;
+        void FinishPlayerbotReadyCheck() { m_playerbotReadyCheck = 0; }
 
         /*********************************************************/
         /***                   LOOT SYSTEM                     ***/
@@ -432,6 +437,9 @@ class TC_GAME_API Group
         BoundInstancesMap   m_boundInstances[MAX_DIFFICULTY];
         uint8*              m_subGroupsCounts;
         ObjectGuid          m_guid;
+        uint64              m_playerbotReadyCheck = 0;
+        ObjectGuid          m_playerbotReadyCheckInitiator;
+        uint32              m_playerbotReadyCheckStarted = 0;
         uint32              m_counter;                      // used only in SMSG_GROUP_LIST
         GroupDisenchantInfo m_disenchantInfo;
         uint32              m_dbStoreId;                    // Represents the ID used in database (Can be reused by other groups if group was disbanded)

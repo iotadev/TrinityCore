@@ -29,6 +29,7 @@ class PointMovementGenerator : public MovementGeneratorMedium< T, PointMovementG
         PointMovementGenerator(uint32 id, float x, float y, float z, bool generatePath, float speed = 0.0f) : _movementId(id), _x(x), _y(y), _z(z), _speed(speed), _generatePath(generatePath), _recalculateSpeed(false), _interrupt(false) { }
 
         MovementGeneratorType GetMovementGeneratorType() const override { return POINT_MOTION_TYPE; }
+        uint32 GetMovementId() const { return _movementId; }
 
         void DoInitialize(T*);
         void DoFinalize(T*);

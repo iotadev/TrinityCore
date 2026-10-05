@@ -27,6 +27,7 @@
 #include <memory>
 #include "ServerOriginPlayerbotLifecycle.h"
 #include "NativeCharacterCreationReceipt.h"
+#include "PlayerbotStrategyBinding.h"
 #include <unordered_map>
 
 #include "AsyncCallbackProcessor.h"
@@ -48,6 +49,7 @@ class LoginQueryHolder;
 class Object;
 class Player;
 class PlayerbotSessionHooks;
+struct PlayerbotStrategySnapshot;
 class Quest;
 class SpellCastTargets;
 class Unit;
@@ -520,6 +522,16 @@ class TC_GAME_API WorldSession
         void RequestServerOriginAttack();
         void RequestServerOriginCease();
         void RequestServerOriginInstanceJoin(uint32 mapId);
+        bool RequestPlayerbotRange(uint32 requesterGuidLow, std::string const& param);
+        bool RequestPlayerbotStrategy(uint32 requesterGuidLow, std::string const& command,
+            std::string const& token = {}, std::string const& target = {}, uint64 batch = 0,
+            PlayerbotStrategyBinding const& binding = {});
+        std::shared_ptr<void const> GetPlayerbotRequestIdentity() const { return std::atomic_load(&_playerbotRequestIdentity); }
+        std::shared_ptr<PlayerbotStrategySnapshot const> GetPlayerbotStrategySnapshot() const;
+        bool RequestPlayerbotRebuff(uint32 requesterGuidLow);
+        bool RequestPlayerbotStay(uint32 requesterGuidLow);
+        uint32 GetPlayerbotStrategyRoleMask() const;
+        void RequestPlayerbotReadyCheck(uint64 group, uint64 check, uint32 initiator, uint32 created);
         bool IsServerOriginAttacking() const;
 
         bool PlayerLoading() const { return !m_playerLoading.IsEmpty(); }
@@ -1482,6 +1494,9 @@ class TC_GAME_API WorldSession
         bool _serverOriginExitRequested;
         std::shared_ptr<ServerOriginPlayerbotLifecycle> _serverOriginLifecycle;
         std::unique_ptr<PlayerbotSessionHooks> _playerbotHooks;
+        // Opaque lifetime marker only. Rotate on logout so reconnect/relogin cannot
+        // execute or receive an old request. Atomic access from map/world contexts.
+        std::shared_ptr<void const> _playerbotRequestIdentity = std::make_shared<uint8>(0);
 
         WorldSession(WorldSession const& right) = delete;
         WorldSession& operator=(WorldSession const& right) = delete;

@@ -269,9 +269,42 @@ bool WorldSession::IsSupportedServerOriginClass(uint8 playerClass)
 {
     return PlayerbotModuleSupportsClass(playerClass);
 }
+bool WorldSession::RequestPlayerbotRange(uint32 requesterGuidLow, std::string const& param)
+{
+    return IsServerOrigin() && _playerbotHooks && requesterGuidLow && param.size() <= 64 &&
+        _playerbotHooks->RequestPlayerbotRange(requesterGuidLow, param);
+}
+bool WorldSession::RequestPlayerbotStrategy(uint32 requesterGuidLow, std::string const& command,
+    std::string const& token, std::string const& target, uint64 batch, PlayerbotStrategyBinding const& binding)
+{
+    return IsServerOrigin() && _playerbotHooks && requesterGuidLow && command.size() <= 253 && token.size() <= 64 && target.size() <= 64 &&
+        _playerbotHooks->RequestPlayerbotStrategy(requesterGuidLow, command, token, target, batch, binding);
+}
+std::shared_ptr<PlayerbotStrategySnapshot const> WorldSession::GetPlayerbotStrategySnapshot() const
+{
+    return IsServerOrigin() && _playerbotHooks ? _playerbotHooks->GetStrategySnapshot() : nullptr;
+}
+bool WorldSession::RequestPlayerbotRebuff(uint32 requesterGuidLow)
+{
+    return IsServerOrigin() && _playerbotHooks && requesterGuidLow &&
+        _playerbotHooks->RequestPlayerbotRebuff(requesterGuidLow);
+}
+uint32 WorldSession::GetPlayerbotStrategyRoleMask() const
+{
+    return IsServerOrigin() && _playerbotHooks ? _playerbotHooks->GetStrategyRoleMask() : 0;
+}
+bool WorldSession::RequestPlayerbotStay(uint32 requesterGuidLow)
+{
+    return IsServerOrigin() && _playerbotHooks && requesterGuidLow && _playerbotHooks->RequestPlayerbotStay(requesterGuidLow);
+}
 uint32 WorldSession::GetServerOriginFollowTargetGuidLow() const
 {
     return _playerbotHooks ? _playerbotHooks->GetFollowTargetGuidLow() : 0;
+}
+void WorldSession::RequestPlayerbotReadyCheck(uint64 group, uint64 check, uint32 initiator, uint32 created)
+{
+    if (IsServerOrigin() && _playerbotHooks && group && check && initiator)
+        _playerbotHooks->RequestPlayerbotReadyCheck(group, check, initiator, created);
 }
 uint32 WorldSession::GetServerOriginPartyControllerGuidLow() const
 {
@@ -645,6 +678,7 @@ bool WorldSession::Update(uint32 diff, PacketFilter& updater)
 /// %Log the player out
 void WorldSession::LogoutPlayer(bool save)
 {
+    std::atomic_store(&_playerbotRequestIdentity, std::shared_ptr<void const>(std::make_shared<uint8>(0)));
     // finish pending transfers before starting the logout
     while (_player && _player->IsBeingTeleportedFar())
         HandleMoveWorldportAck();

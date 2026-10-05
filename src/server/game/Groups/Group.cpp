@@ -1870,6 +1870,24 @@ void Group::BroadcastReadyCheck(WorldPacket const* packet)
     }
 }
 
+uint64 Group::BeginPlayerbotReadyCheck(ObjectGuid initiator, uint32 now)
+{
+    // Native ready-check handlers run on the world thread. Process-wide identity
+    // prevents a disbanded/recreated group from accepting an old map result.
+    static uint64 nextCheck = 0;
+    if (!++nextCheck) ++nextCheck;
+    m_playerbotReadyCheck = nextCheck;
+    m_playerbotReadyCheckInitiator = initiator;
+    m_playerbotReadyCheckStarted = now;
+    return nextCheck;
+}
+
+bool Group::MatchesPlayerbotReadyCheck(uint64 check, ObjectGuid initiator, uint32 now) const
+{
+    return check && check == m_playerbotReadyCheck && initiator == m_playerbotReadyCheckInitiator &&
+        uint32(now - m_playerbotReadyCheckStarted) < 30000;
+}
+
 void Group::OfflineReadyCheck()
 {
     for (member_citerator citr = m_memberSlots.begin(); citr != m_memberSlots.end(); ++citr)

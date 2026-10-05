@@ -1,71 +1,60 @@
 # Playerbots development handoff
 
-Updated 2026-10-02. Read the [roadmap](PLAYERBOTS_PORT_ROADMAP.md) for priorities
-and [development history](PLAYERBOTS_DEV.md) for dated evidence and superseded
-work packets. Do not repeat accepted infrastructure work.
+Updated 2026-10-05. Start here, then read only the linked document needed for
+the task. The [roadmap](PLAYERBOTS_PORT_ROADMAP.md) owns priorities;
+[PORTING.md](../../../modules/mod-playerbots/PORTING.md) owns donor pins and
+adaptations; [milestone evidence](PLAYERBOTS_STATE_MILESTONE.md) owns results.
+Earlier detail remains in the existing dated histories.
 
-## Resume point
+## Current position
 
-Close the shared-state gameplay milestone. Separate combat/noncombat/dead
-strategy registrations share one context; transitions/control changes clear
-pending actions. Native session ownership, resurrection and asynchronous
-transfer remain unchanged.
+- Published infrastructure: module `70014ce`, core `92f41cf`. The shared-state
+  operational module milestone is committed locally as `520051d`; the matching
+  core milestone pins that revision. No publication push has been made.
+- Windows and Linux modules-enabled worldserver builds passed 318/318 checks;
+  Windows modules-disabled passed 19. Addon reader/timer mock passed. Rebuild
+  only when source changes justify it. Linux realm runtime remains untested.
+- October 4 outdoor replay observed four-bot engagement, role actions, return
+  to noncombat, corpse opening and group loot removal. Sustained support and
+  aggregate ACK/STATE/restore remain unobserved.
+- October 5 dungeon preparation failed at bot transfer. All four had joined the
+  party; the human entered Ragefire. Ordinary `.summon` did not produce completed
+  bot arrivals. The copied realm subsequently shut down cleanly.
+- The corrected October 5 replay completed all four arrivals in the same Ragefire
+  instance, several trash pulls, Warrior/Mage actions, Priest Renew, state return
+  and native corpse opening. The player reported working behavior; services
+  stopped cleanly and no assertion appeared. Basic party operation is accepted.
 
-Follow [state acceptance](PLAYERBOTS_STATE_MILESTONE.md) and use the
-[repeatable fixture](PLAYERBOTS_PARTY_FIXTURE.md). Code, platform builds, native
-fixture preparation, outgoing review and local candidate commits are complete.
-Next, when the user is available, restart the saved baseline and run one
-integrated transition/recovery/loot session. Record outcomes and promote or
-correct the candidate. Do not rebuild unchanged code solely to resume testing.
-Do not extend the milestone with an isolated Mage utility spell.
+## Next bounded batch
 
-The native `fixture20` tool and `-RoleFixture -CheckRosterOnly` replay prepare
-talents, equipment and consumables before the client session. Keep the feature
-default-off and restricted to disposable configured slots; production character
-progression remains separate donor-factory work. The user will test later, so
-leave a saved/stopped baseline rather than an idle running realm.
+The corrected recipe adds `-DungeonFixture` alongside `-RecoveryLoot`.
+Recovery-only mode still stays outdoors. The current bot
+adapter acknowledges far transfers only when the dedicated `joininstance` path
+sets its acknowledgement budget; ordinary cross-map `.summon` is not a supported
+substitute. Do not diagnose this incident as phasing or tell the user to change
+phases. General far-transfer support is a separate donor-porting decision.
 
-Ready baseline/evidence: `build/playerbot-smoke-20261002-154407` (ignored).
-All four native roles, equipped weapons/shield and carried food/water were
-verified after logout, followed by clean shutdown. Final Windows suite passed
-195 registered checks; regenerated Linux ran 195 Catch cases, 194 passed and
-one failed as expected. Later client acceptance is still pending; local candidate
-commits preserve this phase without claiming integrated gameplay success.
+The harness sends console `joininstance` after the human party has a Ragefire
+bind and confirms all four completion logs against that instance. Parser and a
+mocked execution of the actual entry branch passed: recovery alone skips entry;
+combined recovery/dungeon dispatches and checks all four. Native entry passed
+the corrected client replay. Preserve the prepared roster and use the
+[fixture](PLAYERBOTS_PARTY_FIXTURE.md) recipe.
 
-## Evidence boundaries
+Continue development with donor tank/healer coordination and recovery for a
+longer human-led dungeon. Measured healing, resource-pressure recovery, stop/resume,
+death/resurrection and addon aggregate ACK/STATE/restore were not established by
+this brief replay; observe them in the next useful party session. Optional spells,
+mounts and forced deaths are not separate prerequisites. Collect concrete failures
+into one donor-aligned corrective batch.
 
-Published infrastructure pair: module `70014ce`, core `92f41cf`. The newer local
-module candidate is `e659178`; its matching core pins it in README. Windows
-passed 195 registered checks; regenerated Linux ran 195 Catch cases, 194 passed
-and one failed as expected. Native fixture readiness/save/logout passed.
-Integrated client acceptance and Linux gameplay remain untested.
+## Working constraints
 
-The last client check established combat/healing/buffs/corpse opening and clean
-shutdown. It lacked assigned roles and recovery items. Warrior late-pull/leash
-observations remain evidence, not a universally fixed defect. New fallbacks and
-advanced actions need integrated qualification, not separate spell sessions.
-
-## Architecture constraints
-
-- Keep native world/map/session ownership and command mailboxes. Mutate decision
-  queues only on the map thread.
-- Use explicit state registrations, as the donor does. Strategy type metadata
-  is not an execution-state filter. Context objects can be shared without sharing
-  pending queues; support healing belongs in both live states.
-- Resolve live targets by GUID and retain owner/party/PvE/leash/security guards.
-- Preserve native learned spells, cooldowns, talents, equipment, loot and DB
-  transactions. Learning a stance alone does not assign a tank spec.
-- Refresh upstream master and record immutable pins. The state audit refreshed
-  master to `037c01418b5d01506917a3db9b44fd56ac5f965c`; its newer AI changes
-  do not alter the separate-engine pattern. Existing action packets retain
-  their actual older import pins.
-- Keep features default-off and Linux server portability intact.
-- Commit validated milestones using the publication identity. Do not infer
-  client acceptance from a successful build or push automatically.
-
-## After acceptance
-
-Next is donor-aligned tank/healer coordination, recovery and one human-led
-low-level dungeon. Autonomous population/questing remain the separate track.
-Optional source archaeology can go directly to Nemotron with a pinned payload
-and Sol audit; adding a local manager is unnecessary.
+Prefer current upstream Playerbots/AzerothCore behavior with immutable provenance
+over new local designs. Preserve Cata world/map/session authority. Work in bounded
+feature groups, compile once per meaningful batch, and bundle runtime checks.
+Avoid another round of general audits or isolated spell tests without new evidence.
+The [candidate review](PLAYERBOTS_CANDIDATE_REVIEW.md) already covers selected
+group authority, lifetime and publication paths; it did not validate general
+far transfers. Warrior facing/idle remains unconfirmed. Broad class/spec coverage
+and population autonomy follow the human-led party work on separate tracks.

@@ -91,6 +91,8 @@ public:
     EraseResult<PhaseContainer> RemovePhase(uint32 phaseId);
     bool HasPhase(uint32 phaseId) const { return Phases.find(PhaseRef(phaseId, PhaseFlags::None, nullptr)) != Phases.end(); }
     PhaseContainer const& GetPhases() const { return Phases; }
+    EnumFlag<PhaseShiftFlags> GetFlags() const { return Flags; }
+    ObjectGuid GetPersonalGuid() const { return PersonalGuid; }
 
     bool AddVisibleMapId(uint32 visibleMapId, TerrainSwapInfo const* visibleMapInfo, int32 references = 1);
     EraseResult<VisibleMapIdContainer> RemoveVisibleMapId(uint32 visibleMapId);

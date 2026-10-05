@@ -3,8 +3,9 @@ param([Parameter(Mandatory)][ValidateNotNullOrEmpty()][string]$Seed,
     [string]$BuildDirectory = 'build/bin/RelWithDebInfo', [string]$DataDirectory, [string]$ClassDumpDirectory, [string]$SeedRepository, [switch]$SkipBot, [switch]$ModuleConfig,
     [switch]$CheckFactory, [switch]$CheckManagedClient, [switch]$ReuseManagedClientFixture,
     [ValidatePattern('^[A-Za-z0-9]{3,16}$')][string]$ManagedClientPassword,
-    [switch]$Interactive, [switch]$RecoveryLoot, [switch]$RoleFixture,
+    [switch]$Interactive, [switch]$RecoveryLoot, [switch]$RoleFixture, [switch]$StrategyFixture, [switch]$DungeonFixture,
     [switch]$CheckRosterOnly,
+    [switch]$CheckNearTeleport,
     [ValidateRange(0, 600)][int]$IdleSeconds = 125,
     [ValidateRange(0, 600)][int]$PostStopSeconds = 0,
     [ValidateSet(1, 7, 20)][int]$BotLevel = 1,
@@ -29,9 +30,12 @@ if ($CheckManagedClient) {
 if ($Interactive -and -not $CheckFullParty) { throw '-Interactive currently requires -CheckFullParty.' }
 if ($MixedParty -and -not $CheckFullParty) { throw '-MixedParty requires -CheckFullParty.' }
 if ($RecoveryLoot -and (-not $MixedParty -or -not $Interactive)) { throw '-RecoveryLoot requires the interactive mixed-party scenario.' }
+if ($DungeonFixture -and (-not $CheckFullParty -or -not $MixedParty -or -not $Interactive -or $CheckRosterOnly)) { throw '-DungeonFixture requires -CheckFullParty -MixedParty -Interactive and cannot use -CheckRosterOnly.' }
 if ($RoleFixture -and (-not $MixedParty -or -not $ModuleConfig)) { throw '-RoleFixture requires -MixedParty and -ModuleConfig.' }
+if ($StrategyFixture -and (-not $Interactive -or -not $MixedParty -or -not $ModuleConfig)) { throw '-StrategyFixture requires -Interactive, -MixedParty and -ModuleConfig.' }
 if ($ClassDumpDirectory -and (-not $MixedParty -or $ReuseFullPartyFixture)) { throw '-ClassDumpDirectory requires -MixedParty without -ReuseFullPartyFixture.' }
 if ($CheckRosterOnly -and (-not $CheckFullParty -or $Interactive)) { throw '-CheckRosterOnly requires -CheckFullParty without -Interactive.' }
+if ($CheckNearTeleport -and (-not $CheckRosterOnly -or -not $RoleFixture)) { throw '-CheckNearTeleport requires the roster-only role fixture.' }
 $repo = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 . (Join-Path $PSScriptRoot 'test-environment.ps1')
 $mysqlHome = Resolve-TestDirectory $MySqlHome $repo 'MySqlHome'
@@ -460,6 +464,13 @@ try {
     if ($CheckFullParty) {
         foreach ($bot in $fullPartyBots | Where-Object Slot -gt 1) {
             $config += "Playerbots.Dev.AccountId$($bot.Slot) = $($bot.Account)`r`nPlayerbots.Dev.CharacterGuid$($bot.Slot) = $($bot.Guid)`r`n"
+        }
+    }
+    if ($StrategyFixture) {
+        foreach ($setting in @('MultiBot.Enabled','StrategyControl.Enabled','StrategyControl.AddonMutations','StrategyControl.GroupMutations')) {
+            $pattern = '(?m)^Playerbots\.' + [regex]::Escape($setting) + '\s*=.*\r?\n?'
+            $config = [regex]::Replace($config, $pattern, '')
+            $config += "Playerbots.$setting = 1`r`n"
         }
     }
     if ($RoleFixture) {
@@ -952,6 +963,24 @@ try {
             Write-Host 'Native level-20 Protection/Arms/Frost/Holy fixture provisioned. Saves were requested; verify persisted rows after shutdown.'
         }
         if ($CheckRosterOnly) {
+            if ($CheckNearTeleport) {
+                $awayDestination = Invoke-TestSql "SELECT name FROM world.game_tele WHERE map=530 AND name LIKE 'Silvermoon%' ORDER BY name;"
+                if (-not $awayDestination -or $awayDestination -notmatch '^[A-Za-z][A-Za-z0-9]*$') {
+                    throw 'Expected one unambiguous native Silvermoon teleport name on map 530; inspect copied world.game_tele.'
+                }
+                foreach ($destination in @($awayDestination,'Tranquillien')) {
+                    if ((Invoke-TestSql "SELECT COUNT(*) FROM world.game_tele WHERE name='$destination' AND map=530;") -ne '1') {
+                        throw "Expected a unique native same-map teleport destination: $destination."
+                    }
+                    foreach ($bot in $fullPartyBots) {
+                        $marker = "PB-TRANSFER: $($bot.Name) completed native same-map teleport"
+                        $before = @(Select-String -LiteralPath $serverLog -SimpleMatch $marker).Count
+                        Send-WorldCommand "tele name $($bot.Name) $destination"
+                        Wait-For { @(Select-String -LiteralPath $serverLog -SimpleMatch $marker).Count -gt $before } 30 "native near teleport for $($bot.Name) to $destination"
+                    }
+                }
+                Write-Host 'All four online bots completed two native same-map teleports each; persisted landing positions still require verification after logout.'
+            }
             foreach ($bot in $fullPartyBots) { Send-WorldCommand "server playerbotdev slot $($bot.Slot) stop" }
             foreach ($bot in $fullPartyBots) {
                 $botGuid = $bot.Guid
@@ -960,6 +989,11 @@ try {
             if ($RoleFixture) {
                 foreach ($bot in $fullPartyBots) {
                     $botGuid = $bot.Guid
+                    if ($CheckNearTeleport) {
+                        Wait-For {
+                            (Invoke-TestSql "SELECT COUNT(*) FROM characters.characters c JOIN world.game_tele t ON t.name='Tranquillien' WHERE c.guid=$botGuid AND c.online=0 AND c.map=t.map AND ABS(c.position_x-t.position_x)<1 AND ABS(c.position_y-t.position_y)<1 AND ABS(c.position_z-t.position_z)<1;") -eq '1'
+                        } 60 "persisted native near-teleport landing for $($bot.Name)"
+                    }
                     $tree = switch ($bot.Slot) { 1 {845}; 2 {746}; 3 {823}; 4 {813} }
                     $weapon = switch ($bot.Slot) { 1 {4765}; 2 {4817}; default {1405} }
                     Wait-For {
@@ -992,23 +1026,27 @@ try {
             }
         }
         if ($RoleFixture) { Write-Host "Role equipment and consumables are ready. Invite $($fullPartyBots.Name -join ', '); use the fixed durable enemies in doc/local/playerbots/PLAYERBOTS_PARTY_FIXTURE.md." }
-        elseif ($RecoveryLoot) { Write-Host "Invite $($fullPartyBots.Name -join ', ') to your party. Stay outdoors; provision food/water and the Mage armor spell as described in doc/local/playerbots/NEXT_MIXED_PARTY_TEST.md." }
+        elseif ($RecoveryLoot -and -not $DungeonFixture) { Write-Host "Invite $($fullPartyBots.Name -join ', ') to your party. Stay outdoors; provision food/water and the Mage armor spell as described in doc/local/playerbots/NEXT_MIXED_PARTY_TEST.md." }
         else { Write-Host "Invite $($fullPartyBots.Name -join ', ') to your party. Then use .tele RagefireChasm and walk through the portal." }
         foreach ($bot in $fullPartyBots) {
             $joinLine = "PB-PARTY: $($bot.Name) joined followed leader"
             Wait-ForHuman { (Select-String -LiteralPath $serverLog -SimpleMatch $joinLine -Quiet) } 240 "bot slot $($bot.Slot) party join"
         }
-        if (-not $RecoveryLoot) {
-        Wait-ForHuman { (Invoke-TestSql 'SELECT COUNT(*) FROM characters.group_instance gi JOIN characters.instance i ON i.id=gi.instance WHERE i.map=389;') -ne '0' } 300 'full party bound to Ragefire Chasm'
-        Start-Sleep -Seconds 3
-        foreach ($bot in $fullPartyBots) { Send-WorldCommand "server playerbotdev slot $($bot.Slot) joininstance 389" }
-        foreach ($bot in $fullPartyBots) {
-            $enteredLine = "PB-PARTY: $($bot.Name) entered dungeon map 389 instance"
-            Wait-For { (Select-String -LiteralPath $serverLog -SimpleMatch $enteredLine -Quiet) } 90 "bot slot $($bot.Slot) dungeon entry"
-        }
+        if ($DungeonFixture -or -not $RecoveryLoot) {
+            Write-Host 'PARTY ASSEMBLED: use .tele RagefireChasm, then walk through the portal. The harness will request bot entry; do not use cross-map .summon.'
+            $partyInstanceQuery = "SELECT DISTINCT i.id FROM characters.group_member gm JOIN characters.group_instance gi ON gi.guid=gm.guid JOIN characters.instance i ON i.id=gi.instance WHERE gm.memberGuid=$humanGuid AND i.map=389;"
+            Wait-ForHuman { (Invoke-TestSql $partyInstanceQuery) -match '^\d+$' } 300 'human party bound to Ragefire Chasm'
+            $partyInstance = Invoke-TestSql $partyInstanceQuery
+            if ($partyInstance -notmatch '^\d+$' -or [uint32]$partyInstance -eq 0) { throw 'Expected one current Ragefire instance bound to the human party.' }
+            foreach ($bot in $fullPartyBots) { Send-WorldCommand "server playerbotdev slot $($bot.Slot) joininstance 389" }
+            foreach ($bot in $fullPartyBots) {
+                $enteredLine = "PB-PARTY: $($bot.Name) entered dungeon map 389 instance $partyInstance"
+                Wait-For { (Select-String -LiteralPath $worldOutput -Pattern ([regex]::Escape($enteredLine) + '(?![0-9])') -Quiet) } 90 "bot slot $($bot.Slot) arrival in party instance $partyInstance"
+            }
+            Write-Host "DUNGEON PARTY READY: all four bots completed entry into Ragefire instance $partyInstance. Use .gm off before normal pulls."
         }
         if ($MixedParty) {
-            if ($RecoveryLoot) { Write-Host 'RECOVERY/LOOT PARTY READY: outdoor pulls are sufficient. Observe native loot and carried food/drink; armor requires a learned eligible spell. Log out when finished.' }
+            if ($RecoveryLoot -and -not $DungeonFixture) { Write-Host 'RECOVERY/LOOT PARTY READY: outdoor pulls are sufficient. Observe native loot and carried food/drink; armor requires a learned eligible spell. Log out when finished.' }
             else { Write-Host 'MIXED PARTY IN DUNGEON: make a few normal pulls; observe Warrior threat, Mage damage and Priest healing.' }
             Write-Host 'If convenient, observe one party-member death/resurrection and one party removal/re-invite. No forced wipe is required. Log out when finished.'
         }
@@ -1025,10 +1063,12 @@ try {
                 Wait-For { (Invoke-TestSql "SELECT online FROM characters.characters WHERE guid=$humanGuid;") -eq '0' } 600 'human logout after mixed-party playtest'
             }
             foreach ($pattern in @('PB-02: Botmage began (Frostbolt|Fireball|Fire Blast|Frost Nova)', 'PB-02: Botpriest began (Flash Heal|Heal|Renew|Power Word: Shield)', 'PB-02: Botpriest began Power Word: Fortitude')) {
-                Write-Host "Class evidence [$pattern]: $(@(Select-String -LiteralPath $serverLog -Pattern $pattern).Count) accepted casts"
+                # Config reload can reopen/truncate Server.log; the redirected
+                # console capture retains this process's complete session.
+                Write-Host "Class evidence [$pattern]: $(@(Select-String -LiteralPath $worldOutput -Pattern $pattern).Count) accepted casts"
             }
             foreach ($pattern in @('PB-ENGINE: Testone Warrior combat routed', 'PB-ENGINE: Botmage Mage combat routed', 'PB-ENGINE: Botpriest Priest healing routed', 'PB-02: Testone began (Taunt|Shield Slam|Victory Rush|Rend|Strike)', 'PB-02: Botpriest began Resurrection', 'PB-RECOVERY: .* accepted resurrection')) {
-                Write-Host "Engine/recovery evidence [$pattern]: $(@(Select-String -LiteralPath $serverLog -Pattern $pattern).Count) log matches"
+                Write-Host "Engine/recovery evidence [$pattern]: $(@(Select-String -LiteralPath $worldOutput -Pattern $pattern).Count) log matches"
             }
         }
         elseif (-not $Interactive) {
