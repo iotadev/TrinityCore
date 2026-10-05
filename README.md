@@ -31,21 +31,24 @@ compatible. See the [module integration guide](modules/README.md) for the build
 boundary. The modules are independently selectable with
 `-DMODULE_MOD_PLAYERBOTS=ON|OFF` and `-DMODULE_MOD_AHBOT=ON|OFF`.
 
-For the 2026-10-05 shared-state operational milestone, use the matching module
-revisions below. Windows and Linux modules-enabled builds passed all 318 checks;
-the Windows modules-disabled build passed 19. The level-20 Warrior/Mage/Priest
-party completed dedicated Ragefire entry and normal trash combat with working
-player feedback and clean shutdown. Full clears, sustained recovery/support,
-optional addon timing and Linux realm runtime remain unverified. See the
+For the published 2026-10-05 coordination/recovery milestone, use the matching
+module revisions below. Windows and Linux modules-enabled worldserver builds
+passed all 324 checks; the preceding Windows modules-disabled build passed 19.
+The level-20 Warrior/Mage/Priest party completed dedicated Ragefire entry and
+normal combat, with observed healing, tank aggro recovery, eating/drinking and
+owner-death holding followed by follow resumption. Test-owned services shut down
+cleanly. Full clears, quantitative mana savings, detailed tank orientation,
+Priest resurrection, optional addon timing and Linux realm runtime remain
+unverified. See the
 [milestone evidence](doc/local/playerbots/PLAYERBOTS_STATE_MILESTONE.md) for limits.
-AHBot implementation is unchanged by this Playerbots batch. The new module
-revision is committed locally and must be published before a remote checkout can use it.
+AHBot implementation is unchanged by this Playerbots batch. The listed Playerbots
+revision is available on GitHub.
 The earlier accepted [infrastructure milestone](doc/local/playerbots/PLAYERBOTS_INFRASTRUCTURE_MILESTONE.md)
 retains its historical revisions and client lifecycle evidence.
 
 | Module | Repository | Commit |
 | --- | --- | --- |
-| Playerbots | [iotadev/cata-playerbots](https://github.com/iotadev/cata-playerbots) | `520051d47432005fc02bf9047b5f8ec9eea6adfe` |
+| Playerbots | [iotadev/cata-playerbots](https://github.com/iotadev/cata-playerbots) | `9f99b27464a834d25e09422d1cd3c44f101664b0` |
 | AHBot | [iotadev/cata-ahbot](https://github.com/iotadev/cata-ahbot) | `ac2064e91b02af6b345b492a3f3453614b0087ab` |
 
 Clone each repository into the shown `modules/` directory and check out its

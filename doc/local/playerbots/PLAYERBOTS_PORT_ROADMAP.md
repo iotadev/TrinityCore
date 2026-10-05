@@ -12,15 +12,17 @@ source and validation record. This file is the current resume plan.
 The published infrastructure pair (module `70014ce`, core `92f41cf`) has accepted
 native server-origin sessions, bounded character creation, managed roster,
 optional module integration and MultiBot connection lifecycle. Later gameplay
-work forms a local operational milestone; do not reopen infrastructure merely to continue it.
+work is now published through the coordination/recovery milestone; do not reopen
+infrastructure merely to continue it.
 
 The shared combat, noncombat and dead-state engines support a bounded human-led
 Warrior/Mage/Priest party: role-aware combat and support, movement/follow/stay,
 spell reach, interrupts, buffs, recovery, corpse opening, ready-check basics and
 learned ground mounts. These are donor-aligned slices, not full class or dungeon
 parity. Earlier outdoor/Ragefire checks observed engagement, healing, tank rescue,
-target-death return, corpse opening and clean logout. Later slices await a combined
-client replay; accepted casts and source tests do not establish native effects.
+target-death return, corpse opening and clean logout. The later coordination/
+recovery replay observed repeated healing, tank aggro recovery and eating/drinking.
+Accepted casts and source tests do not establish every native effect.
 The 2026-10-04 outdoor replay observed all four engaging, return to noncombat,
 Priest Renew casts, native corpse opening and group loot removal in chat queries.
 The realm shut down cleanly. Sustained support and addon ACK/restore observations
@@ -51,8 +53,8 @@ General far-transfer support can be ported separately; phase changes are not an
 evidence-based remedy for this incident.
 
 - Platform source validation is complete for this candidate: Windows and Linux
-  modules-enabled worldserver builds passed all 318 checks; the Windows module-off
-  worldserver passed 19. Linux used Ubuntu 22.04/GCC 11.4 with normal PCH enabled.
+  modules-enabled worldserver builds passed all 324 checks; the preceding Windows
+  module-off worldserver passed 19. Linux used Ubuntu 22.04/GCC 11.4 with normal PCH enabled.
   Linux realm runtime remains untested. The installed Cata addon reader passed a
   Lua 5.1 mock of ACK-before-timeout and late-ACK behavior. These checks do not
   replace in-game qualification.
@@ -64,7 +66,7 @@ evidence-based remedy for this incident.
   group strategy ACK/STATE refresh/restore together in the dungeon continuation.
   Preserve the stopped fixture until a
   client session is available. Record actual failures as one corrective batch.
-- The basic operational replay passed. The matching local milestone is module
+- The basic operational replay passed. The preceding milestone is module
   `520051d`, core `6b81a13e38`. The newer coordination/recovery module milestone
   is published on GitHub main as `9f99b27`, with its evidence and harness in this core
   update. Remaining optional observations can join later dungeon
@@ -73,21 +75,21 @@ evidence-based remedy for this incident.
   coordination failures through their owning donor behavior. Autonomous account
   populations, quests, travel and dungeon formation are a separate track.
 
+## Latest milestone
+
+The published batch adds optional healer mana conservation, consistent tank/front
+versus non-tank/rear chase decisions, and donor food/drink metadata and completion
+handling. Windows and Linux builds passed 324 tests each. A longer Ragefire session
+observed basic healing/aggro recovery, eating/drinking and owner-death hold/follow
+resumption, with clean shutdown. Quantitative mana savings and detailed tank
+orientation remain open; source qualification and gameplay evidence stay separate.
+
 ## Next two batches
 
-1. Extend donor role coordination and recovery after the committed operational
-   milestone. Local slices add optional healer mana conservation and consistent
-   tank/front versus non-tank/rear chase decisions during aggro transitions,
-   plus donor food/drink metadata consistency and resource-based rest completion.
-   This batch builds on Windows/Linux and passes 324 tests on each platform;
-   source validation is complete. A longer Ragefire session observed basic
-   healing/aggro recovery, eating/drinking and owner-death hold/follow resumption,
-   with clean shutdown. Quantitative mana savings and tank orientation remain open.
-   Source/test qualification and sustained native behavior remain separate.
-2. Port donor main-tank coordination as a bounded shared-role/target-selection
+1. Port donor main-tank coordination as a bounded shared-role/target-selection
    batch. Compare explicit main-tank assignment and multi-tank target retention
    against native Cata group flags without changing session/thread authority.
-   Continue the human-led dungeon toward a clear rather than repeating the
+2. Continue the human-led dungeon toward a clear rather than repeating the
    accepted recovery check. Port larger donor feature groups where it exposes a gap;
    keep full class/spec coverage, pets, travel and autonomy on separate tracks.
 

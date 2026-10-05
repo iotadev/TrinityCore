@@ -13,11 +13,11 @@ Earlier detail remains in the existing dated histories.
   recovery module milestone is published on GitHub main as `9f99b27`; this core
   publication handoff pins that revision.
 - Windows and Linux modules-enabled worldserver builds passed 324/324 checks;
-  Windows modules-disabled passed 19. Addon reader/timer mock passed. Rebuild
+  The preceding Windows modules-disabled build passed 19. Addon reader/timer mock passed. Rebuild
   only when source changes justify it. Linux realm runtime remains untested.
 - October 4 outdoor replay observed four-bot engagement, role actions, return
-  to noncombat, corpse opening and group loot removal. Sustained support and
-  aggregate ACK/STATE/restore remain unobserved.
+  to noncombat, corpse opening and group loot removal. Aggregate ACK/STATE/restore
+  remains unobserved; the later recovery session is summarized below.
 - October 5 dungeon preparation failed at bot transfer. All four had joined the
   party; the human entered Ragefire. Ordinary `.summon` did not produce completed
   bot arrivals. The copied realm subsequently shut down cleanly.
@@ -28,23 +28,20 @@ Earlier detail remains in the existing dated histories.
 
 ## Coordination/recovery milestone
 
-The first post-milestone slice ports donor healer mana conservation from refreshed
+The published batch ports donor healer mana conservation from refreshed
 master `037c01418b5d01506917a3db9b44fd56ac5f965c`. Optional module-local
 `Playerbots.Healing.SaveMana.Enabled` defaults off. Both healing paths apply
 the donor percentage/efficiency/tank rules at native candidate eligibility.
-Source and three boundary tests are local; Windows worldserver/tests-common built
-and all 321 registered tests passed.
-The previous 318-check Linux result belongs to the committed milestone, not this
-new slice. Observe conservation in a later sustained-party session; no isolated
-client check is needed. See module PORTING.md for policy differences and limits.
+Three boundary tests cover the policy. Conservation was enabled during the later
+party session, but suppression decisions and quantitative savings were not
+measured. See module PORTING.md for adaptations and dated intermediate results.
 
-The next local slice unifies initial/reach/ongoing melee chase with existing
+The batch also unifies initial/reach/ongoing melee chase with existing
 role-aware movement eligibility. A designated tank keeps front positioning
 while recovering aggro; a non-tank victim also stays front until aggro is lost.
 This is a consistency correction to the donor-backed Cata movement adapter,
 not a verified fix for the historical Warrior idle observation. One regression
-was added; Windows worldserver/tests-common built and all 322 tests passed.
-The complete batch subsequently passed Linux's 324-check suite. Detailed tank
+was added. Detailed tank
 orientation remains unconfirmed; basic party operation passed the later replay.
 
 Recovery execution and ready-check inventory counting now share donor food/drink
