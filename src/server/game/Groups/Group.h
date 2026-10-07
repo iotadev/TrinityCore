@@ -23,6 +23,7 @@
 #include "GroupRefManager.h"
 #include "Loot.h"
 #include "SharedDefines.h"
+#include "PlayerbotLootRollIdentity.h"
 #include <map>
 
 class Battlefield;
@@ -377,6 +378,9 @@ class TC_GAME_API Group
         void NeedBeforeGreed(Loot* loot, WorldObject* pLootedObject);
         void MasterLoot(Loot* loot, WorldObject* pLootedObject);
         Rolls::iterator GetRoll(ObjectGuid Guid);
+        // World-thread bot adapter: copied facts and fresh native vote admission.
+        bool GetPlayerbotPendingLootRoll(Player const& member, PlayerbotLootRoll& result) const;
+        bool ValidatePlayerbotLootVote(Player const& member, PlayerbotLootRoll const& expected, uint8 choice) const;
         void CountTheRoll(Rolls::iterator roll, Map* allowedMap);
         void CountRollVote(ObjectGuid playerGUID, ObjectGuid Guid, uint8 Choise);
         void EndRoll(Loot* loot, Map* allowedMap);

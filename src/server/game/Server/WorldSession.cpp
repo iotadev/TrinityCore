@@ -274,6 +274,10 @@ bool WorldSession::RequestPlayerbotRange(uint32 requesterGuidLow, std::string co
     return IsServerOrigin() && _playerbotHooks && requesterGuidLow && param.size() <= 64 &&
         _playerbotHooks->RequestPlayerbotRange(requesterGuidLow, param);
 }
+bool WorldSession::RequestPlayerbotEquip(uint32 requesterGuidLow)
+{
+    return IsServerOrigin() && _playerbotHooks && requesterGuidLow && _playerbotHooks->RequestPlayerbotEquip(requesterGuidLow);
+}
 bool WorldSession::RequestPlayerbotStrategy(uint32 requesterGuidLow, std::string const& command,
     std::string const& token, std::string const& target, uint64 batch, PlayerbotStrategyBinding const& binding)
 {

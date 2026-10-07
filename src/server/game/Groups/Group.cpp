@@ -2816,6 +2816,59 @@ bool Group::isRollLootActive() const
     return !RollId.empty();
 }
 
+namespace
+{
+bool PlayerbotRollHasCurrentLoot(Roll& roll)
+{
+    if (!roll.isValid() || !roll.getLoot() || roll.itemSlot >= roll.getLoot()->items.size()) return false;
+    LootItem const& item = roll.getLoot()->items[roll.itemSlot];
+    return item.is_blocked && item.itemid == roll.itemid && item.count == roll.itemCount &&
+        item.randomPropertyId.Type == roll.itemRandomPropId.Type && item.randomPropertyId.Id == roll.itemRandomPropId.Id &&
+        item.randomSuffix == roll.itemRandomSuffix;
+}
+PlayerbotLootRoll CopyPlayerbotRoll(Group const& group, Player const& member, Roll const& roll)
+{
+    PlayerbotLootRoll result;
+    result.Group = uint64(group.GetGUID()); result.Roll = uint64(roll.itemGUID);
+    result.Entry = roll.itemid; result.Property = roll.itemRandomPropId.Id;
+    result.PropertyType = uint8(roll.itemRandomPropId.Type); result.SuffixFactor = roll.itemRandomSuffix;
+    result.Count = roll.itemCount; result.Slot = roll.itemSlot; result.Mask = roll.rollVoteMask;
+    result.Map = member.GetMapId(); result.Instance = member.GetInstanceId();
+    if (group.GetLootMethod() == NEED_BEFORE_GREED)
+    {
+        ItemTemplate const* item = sObjectMgr->GetItemTemplate(roll.itemid);
+        if (!item || !member.CanRollNeedForItem(item)) result.Mask &= ~ROLL_FLAG_TYPE_NEED;
+    }
+    return result;
+}
+}
+bool Group::GetPlayerbotPendingLootRoll(Player const& member, PlayerbotLootRoll& result) const
+{
+    if (!member.GetSession() || !member.GetSession()->IsServerOrigin() || member.GetGroup() != this ||
+        !IsMember(member.GetGUID()) || (GetLootMethod() != GROUP_LOOT && GetLootMethod() != NEED_BEFORE_GREED)) return false;
+    for (auto const& roll : RollId)
+    {
+        auto vote = roll->playerVote.find(member.GetGUID());
+        if (!PlayerbotRollHasCurrentLoot(*roll) || vote == roll->playerVote.end() || vote->second != NOT_EMITED_YET) continue;
+        result = CopyPlayerbotRoll(*this, member, *roll);
+        return true;
+    }
+    return false;
+}
+bool Group::ValidatePlayerbotLootVote(Player const& member, PlayerbotLootRoll const& expected, uint8 choice) const
+{
+    if (!member.GetSession() || !member.GetSession()->IsServerOrigin() || member.GetGroup() != this ||
+        !IsMember(member.GetGUID()) || (GetLootMethod() != GROUP_LOOT && GetLootMethod() != NEED_BEFORE_GREED)) return false;
+    for (auto const& roll : RollId)
+    {
+        if (!PlayerbotRollHasCurrentLoot(*roll) || uint64(roll->itemGUID) != expected.Roll) continue;
+        auto vote = roll->playerVote.find(member.GetGUID());
+        auto current = CopyPlayerbotRoll(*this, member, *roll);
+        return current.Matches(expected) && PlayerbotLootRoll::Admits(
+            vote != roll->playerVote.end() && vote->second == NOT_EMITED_YET, current.Mask, choice);
+    }
+    return false;
+}
 Group::Rolls::iterator Group::GetRoll(ObjectGuid Guid)
 {
     Rolls::iterator iter;

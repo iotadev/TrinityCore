@@ -14,11 +14,16 @@
 class World;
 class WorldSession;
 
-// Immutable map-published read model. Contains no native objects or engine pointers.
+// Immutable map-published read model. The legacy name remains for strategy API
+// compatibility; optional diagnostics contain only copied data, never native pointers.
 struct PlayerbotStrategySnapshot
 {
     uint32 Bot = 0, Controller = 0, Created = 0;
     std::vector<std::string> Combat, NonCombat;
+    bool StrategiesReady = false;
+    bool EquipmentEnabled = false, EquipmentAvailable = false;
+    uint32 EquipmentCreated = 0, EquipmentTotal = 0;
+    std::vector<std::string> EquipmentRows;
 };
 
 // WorldSession owns this object. Commands only post requests; map/world updates
@@ -35,6 +40,7 @@ public:
     virtual void RequestServerOriginCease() = 0;
     virtual void RequestServerOriginInstanceJoin(uint32 mapId) = 0;
     virtual bool RequestPlayerbotRange(uint32 requesterGuidLow, std::string const& param) = 0;
+    virtual bool RequestPlayerbotEquip(uint32) { return false; }
     virtual bool RequestPlayerbotStrategy(uint32 requesterGuidLow, std::string const& command,
         std::string const& token, std::string const& target, uint64 batch, PlayerbotStrategyBinding const& binding) = 0;
     virtual bool RequestPlayerbotRebuff(uint32 requesterGuidLow) = 0;

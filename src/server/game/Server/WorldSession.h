@@ -523,6 +523,7 @@ class TC_GAME_API WorldSession
         void RequestServerOriginCease();
         void RequestServerOriginInstanceJoin(uint32 mapId);
         bool RequestPlayerbotRange(uint32 requesterGuidLow, std::string const& param);
+        bool RequestPlayerbotEquip(uint32 requesterGuidLow);
         bool RequestPlayerbotStrategy(uint32 requesterGuidLow, std::string const& command,
             std::string const& token = {}, std::string const& target = {}, uint64 batch = 0,
             PlayerbotStrategyBinding const& binding = {});

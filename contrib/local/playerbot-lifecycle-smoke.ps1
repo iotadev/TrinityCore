@@ -4,7 +4,7 @@ param([Parameter(Mandatory)][ValidateNotNullOrEmpty()][string]$Seed,
     [switch]$CheckFactory, [switch]$CheckManagedClient, [switch]$ReuseManagedClientFixture,
     [ValidatePattern('^[A-Za-z0-9]{3,16}$')][string]$ManagedClientPassword,
     [switch]$Interactive, [switch]$RecoveryLoot, [switch]$RoleFixture, [switch]$StrategyFixture, [switch]$DungeonFixture,
-    [switch]$HealerSaveMana,
+    [switch]$HealerSaveMana, [switch]$GearInspection, [switch]$GearApply, [switch]$LootRolls, [switch]$ControlledLootRoll,
     [switch]$CheckRosterOnly,
     [switch]$CheckNearTeleport,
     [ValidateRange(0, 600)][int]$IdleSeconds = 125,
@@ -32,6 +32,13 @@ if ($Interactive -and -not $CheckFullParty) { throw '-Interactive currently requ
 if ($MixedParty -and -not $CheckFullParty) { throw '-MixedParty requires -CheckFullParty.' }
 if ($RecoveryLoot -and (-not $MixedParty -or -not $Interactive)) { throw '-RecoveryLoot requires the interactive mixed-party scenario.' }
 if ($HealerSaveMana -and (-not $RecoveryLoot -or -not $ModuleConfig -or -not $EnginePriestHeal)) { throw '-HealerSaveMana requires -RecoveryLoot -ModuleConfig -EnginePriestHeal.' }
+if ($GearInspection -and (-not $CheckFullParty -or -not $Interactive -or -not $MixedParty -or -not $ModuleConfig)) { throw '-GearInspection requires -CheckFullParty -Interactive -MixedParty -ModuleConfig.' }
+if ($GearApply -and (-not $GearInspection -or $DungeonFixture -or $RoleFixture -or $RecoveryLoot)) { throw '-GearApply requires the standalone outdoor -GearInspection fixture.' }
+if ($LootRolls -and (-not $RecoveryLoot -or -not $DungeonFixture -or -not $ModuleConfig -or $GearInspection)) { throw '-LootRolls requires the combined recovery/dungeon module fixture.' }
+if ($ControlledLootRoll) {
+    if (-not $LootRolls -or -not $ReuseFullPartyFixture) { throw '-ControlledLootRoll requires -LootRolls and the reused offline full-party fixture.' }
+    $RoleFixture = $true
+}
 if ($DungeonFixture -and (-not $CheckFullParty -or -not $MixedParty -or -not $Interactive -or $CheckRosterOnly)) { throw '-DungeonFixture requires -CheckFullParty -MixedParty -Interactive and cannot use -CheckRosterOnly.' }
 if ($RoleFixture -and (-not $MixedParty -or -not $ModuleConfig)) { throw '-RoleFixture requires -MixedParty and -ModuleConfig.' }
 if ($StrategyFixture -and (-not $Interactive -or -not $MixedParty -or -not $ModuleConfig)) { throw '-StrategyFixture requires -Interactive, -MixedParty and -ModuleConfig.' }
@@ -311,7 +318,7 @@ try {
         $humanFields = $human -split "`t"
         if ($humanFields.Count -ne 4 -or $humanFields[3] -ne '0') { throw "Full-party fixture needs an offline human character named Test; found: $human" }
         $humanGuid = [uint32]$humanFields[1]
-        if (($RecoveryLoot -or $RoleFixture) -and $ReuseFullPartyFixture) {
+        if (($RecoveryLoot -or $RoleFixture -or $GearInspection) -and $ReuseFullPartyFixture) {
             # The copied database may retain the previous test party. Normalize
             # only groups wholly owned by these five offline fixture characters.
             $fixtureRows = @((Invoke-TestSql "SELECT guid FROM characters.characters WHERE name IN ('Test','Testone','Testtwo','Botmage','Botpriest') AND online=0;") -split "`r?`n")
@@ -323,7 +330,7 @@ try {
                 if ($groupId -notmatch '^\d+$' -or (Invoke-TestSql "SELECT COUNT(*) FROM characters.group_member WHERE guid=$groupId AND memberGuid NOT IN ($fixtureIds);") -ne '0') { throw 'Refusing to normalize a party containing a non-fixture member.' }
                 [void](Invoke-TestSql "START TRANSACTION; DELETE FROM characters.group_instance WHERE guid=$groupId; DELETE FROM characters.group_member WHERE guid=$groupId; DELETE FROM characters.groups WHERE guid=$groupId; COMMIT;")
             }
-            Write-Host 'Copied recovery fixture only: retired test-owned party membership normalized.'
+            Write-Host 'Copied fixture only: retired test-owned party membership normalized.'
         }
         if ((Invoke-TestSql "SELECT COUNT(*) FROM characters.group_member WHERE memberGuid IN ($characterGuid,$humanGuid);") -ne '0') { throw 'Full-party seed already has party membership; use a pre-party disposable seed.' }
         $botHomebind = Invoke-TestSql "SELECT mapId, posX, posY, posZ FROM characters.character_homebind WHERE guid=$characterGuid;"
@@ -334,6 +341,23 @@ try {
         [void](Invoke-TestSql "INSERT INTO auth.account_access (AccountID, SecurityLevel, RealmID) VALUES ($($humanFields[0]), 3, -1) ON DUPLICATE KEY UPDATE SecurityLevel=3;")
 
         $fullPartyBots = @([pscustomobject]@{ Slot=1; Account=$accountId; Guid=$characterGuid; Name='Testone' })
+        if ($ControlledLootRoll) {
+            # Precondition the copy before any native fixture provisioning.
+            # Only normal prepared seeds may be used, not an already-modified roll seed.
+            $chests = Invoke-TestSql "SELECT COUNT(*) FROM characters.character_inventory c JOIN characters.item_instance i ON i.guid=c.item JOIN characters.characters p ON p.guid=c.guid WHERE p.name IN ('Testone','Testtwo') AND p.online=0 AND c.bag=0 AND c.slot=4 AND i.itemEntry=2866 AND i.owner_guid=p.guid AND i.durability>0;"
+            if ($chests -ne '2') { throw 'Controlled roll fixture requires both offline Warriors to have the known chest 2866 equipped.' }
+            $creature = Invoke-TestSql "SELECT entry,lootid FROM world.creature_template WHERE name='Oggleflint' ORDER BY entry LIMIT 1;"
+            $creatureFields = $creature -split "`t"
+            if ($creatureFields.Count -ne 2 -or $creatureFields[0] -notmatch '^\d+$' -or $creatureFields[1] -notmatch '^\d+$') { throw 'Expected one known Oggleflint loot source in the copied world.' }
+            $controlledCreature = [uint32]$creatureFields[0]
+            $oldLoot = [uint32]$creatureFields[1]
+            if ((Invoke-TestSql "SELECT COUNT(*) FROM world.creature WHERE id=$controlledCreature AND map=389;") -ne '1') { throw 'Controlled loot source must have exactly one Ragefire spawn.' }
+            $controlledLoot = 990001
+            if ((Invoke-TestSql "SELECT (SELECT COUNT(*) FROM world.creature_loot_template WHERE Entry=$controlledLoot)+(SELECT COUNT(*) FROM world.creature_template WHERE lootid=$controlledLoot);") -ne '0') { throw 'Controlled loot ID is already occupied; refusing to overwrite it.' }
+            [void](Invoke-TestSql "START TRANSACTION; INSERT INTO world.creature_loot_template (Entry,Item,Reference,Chance,QuestRequired,IsCurrency,LootMode,GroupId,MinCount,MaxCount) VALUES ($controlledLoot,2866,0,100,0,0,1,0,1,1); UPDATE world.creature_template SET lootid=$controlledLoot WHERE entry=$controlledCreature AND lootid=$oldLoot; COMMIT;")
+            @{ Creature=$controlledCreature; OriginalLoot=$oldLoot; FixtureLoot=$controlledLoot; Drop=2866; ExpectedNeed='Testone'; ExpectedGreed='Testtwo' } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $stage 'controlled-roll-fixture.json') -Encoding UTF8
+            Write-Host 'Copied fixture only: Oggleflint now drops item 2866 at 100%. Native role preparation will preserve Testone chest in a bag; Testtwo keeps his equipped.'
+        }
         if (-not $ReuseFullPartyFixture) {
             # Export/import through the core so cloned characters receive fresh
             # GUIDs and related records. Everything stays in $stage.
@@ -467,6 +491,19 @@ try {
         $config = [regex]::Replace($config, '(?m)^Playerbots\.Healing\.SaveMana\.Enabled\s*=.*\r?\n?', '')
         $config += "Playerbots.Healing.SaveMana.Enabled = 1`r`n"
     }
+    if ($LootRolls) {
+        foreach ($setting in @('Equipment.StarterScore.Enabled','Loot.Rolls.Enabled','Loot.PassOnGroupLoot','Equipment.StarterEquip.Enabled')) {
+            $config = [regex]::Replace($config, '(?m)^Playerbots\.' + [regex]::Escape($setting) + '\s*=.*\r?\n?', '')
+            $value = if ($setting -eq 'Loot.PassOnGroupLoot' -or $setting -eq 'Equipment.StarterEquip.Enabled') { 0 } else { 1 }
+            $config += "Playerbots.$setting = $value`r`n"
+        }
+    }
+    if ($GearInspection) {
+        $config = [regex]::Replace($config, '(?m)^Playerbots\.Equipment\.StarterScore\.Enabled\s*=.*\r?\n?', '')
+        $config += "Playerbots.Equipment.StarterScore.Enabled = 1`r`n"
+        $config = [regex]::Replace($config, '(?m)^Playerbots\.Equipment\.StarterEquip\.Enabled\s*=.*\r?\n?', '')
+        $config += "Playerbots.Equipment.StarterEquip.Enabled = $([int][bool]$GearApply)`r`n"
+    }
     if ($CheckFullParty) {
         foreach ($bot in $fullPartyBots | Where-Object Slot -gt 1) {
             $config += "Playerbots.Dev.AccountId$($bot.Slot) = $($bot.Account)`r`nPlayerbots.Dev.CharacterGuid$($bot.Slot) = $($bot.Guid)`r`n"
@@ -482,6 +519,8 @@ try {
     if ($RoleFixture) {
         $config = [regex]::Replace($config, '(?m)^Playerbots\.Dev\.Fixture20\.Enabled\s*=.*\r?\n?', '')
         $config += "Playerbots.Dev.Fixture20.Enabled = 1`r`n"
+        $config = [regex]::Replace($config, '(?m)^Playerbots\.Dev\.LootRollFixture\.Enabled\s*=.*\r?\n?', '')
+        $config += "Playerbots.Dev.LootRollFixture.Enabled = $([int][bool]$ControlledLootRoll)`r`n"
     }
     Write-TestWorldConfig $config
 
@@ -932,6 +971,7 @@ try {
     }
     if ($CheckFullParty) {
         if ($RecoveryLoot -or $RoleFixture) {
+            # Existing normalization remains separate from read-only gear checks.
             # Reused seeds may contain level-one Warriors. Normalize only the
             # copied offline roster through the native character-level command.
             foreach ($bot in $fullPartyBots) {
@@ -940,8 +980,23 @@ try {
                 Wait-For { (Invoke-TestSql "SELECT level FROM characters.characters WHERE guid=$botGuid AND online=0;") -eq '20' } 30 "recovery fixture slot $($bot.Slot) level 20"
             }
         }
+        if ($GearApply) {
+            # Capture persisted inventory before login. Only the observed empty
+            # waist candidate is accepted by this fixture; no item is created.
+            $gearIdentitySql = "SELECT guid,itemEntry,owner_guid,count,flags,enchantments,randomPropertyType,randomPropertyId,durability FROM characters.item_instance WHERE owner_guid=$characterGuid ORDER BY guid;"
+            $gearMappingSql = "SELECT item,bag,slot FROM characters.character_inventory WHERE guid=$characterGuid ORDER BY item;"
+            $gearBeforeIdentity = Invoke-TestSql $gearIdentitySql
+            $gearBeforeMapping = Invoke-TestSql $gearMappingSql
+            $gearCandidate = Invoke-TestSql "SELECT i.guid FROM characters.item_instance i JOIN characters.character_inventory c ON c.item=i.guid WHERE i.owner_guid=$characterGuid AND c.guid=$characterGuid AND i.itemEntry=9758 AND (c.bag<>0 OR c.slot>=23);"
+            if ($gearCandidate -notmatch '^\d+$' -or (Invoke-TestSql "SELECT COUNT(*) FROM characters.character_inventory WHERE guid=$characterGuid AND bag=0 AND slot=5;") -ne '0') { throw 'Gear apply fixture requires one carried item 9758 and an empty waist slot.' }
+            $gearExpectedMapping = (($gearBeforeMapping -split '\r?\n' | ForEach-Object {
+                if ($_ -match "^$gearCandidate`t") { "$gearCandidate`t0`t5" } else { $_ }
+            }) -join "`n").Trim()
+            @{ Identity = $gearBeforeIdentity; Mapping = $gearBeforeMapping; Candidate = $gearCandidate } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $stage 'gear-before.json') -Encoding UTF8
+        }
+        if ($GearInspection -and -not $DungeonFixture) { Send-WorldCommand 'tele name Test Tranquillien' }
         foreach ($bot in $fullPartyBots) {
-            if ($RoleFixture) { Send-WorldCommand "tele name $($bot.Name) Tranquillien" }
+            if ($RoleFixture -or ($GearInspection -and -not $DungeonFixture)) { Send-WorldCommand "tele name $($bot.Name) Tranquillien" }
             Send-WorldCommand "server playerbotdev slot $($bot.Slot) start"
             $botGuid = $bot.Guid
             Wait-For { (Invoke-TestSql "SELECT online, map FROM characters.characters WHERE guid=$botGuid;") -eq "1$([char]9)530" } 90 "bot slot $($bot.Slot) online on outdoor map"
@@ -967,6 +1022,11 @@ try {
                 } 30 "native role/equipment/consumable preparation for $fixtureName"
             }
             Write-Host 'Native level-20 Protection/Arms/Frost/Holy fixture provisioned. Saves were requested; verify persisted rows after shutdown.'
+            if ($ControlledLootRoll) {
+                Wait-For { (Invoke-TestSql "SELECT COUNT(*) FROM characters.character_inventory WHERE guid=$characterGuid AND bag=0 AND slot=4;") -eq '0' } 30 'saved empty Testone chest slot'
+                $controlledBeforeStock = [uint32](Invoke-TestSql "SELECT COALESCE(SUM(count),0) FROM characters.item_instance WHERE owner_guid=$characterGuid AND itemEntry=2866;")
+                if ($controlledBeforeStock -lt 1) { throw 'Controlled roll fixture did not preserve Testone existing chest.' }
+            }
         }
         if ($CheckRosterOnly) {
             if ($CheckNearTeleport) {
@@ -1032,13 +1092,14 @@ try {
             }
         }
         if ($RoleFixture) { Write-Host "Role equipment and consumables are ready. Invite $($fullPartyBots.Name -join ', '); use the fixed durable enemies in doc/local/playerbots/PLAYERBOTS_PARTY_FIXTURE.md." }
+        elseif ($GearInspection -and -not $DungeonFixture) { Write-Host "Invite $($fullPartyBots.Name -join ', ') and whisper gear? while safely idle. No teleport, combat or equipment change is required." }
         elseif ($RecoveryLoot -and -not $DungeonFixture) { Write-Host "Invite $($fullPartyBots.Name -join ', ') to your party. Stay outdoors; provision food/water and the Mage armor spell as described in doc/local/playerbots/NEXT_MIXED_PARTY_TEST.md." }
         else { Write-Host "Invite $($fullPartyBots.Name -join ', ') to your party. Then use .tele RagefireChasm and walk through the portal." }
         foreach ($bot in $fullPartyBots) {
             $joinLine = "PB-PARTY: $($bot.Name) joined followed leader"
             Wait-ForHuman { (Select-String -LiteralPath $serverLog -SimpleMatch $joinLine -Quiet) } 240 "bot slot $($bot.Slot) party join"
         }
-        if ($DungeonFixture -or -not $RecoveryLoot) {
+        if ($DungeonFixture -or (-not $RecoveryLoot -and -not $GearInspection)) {
             Write-Host 'PARTY ASSEMBLED: use .tele RagefireChasm, then walk through the portal. The harness will request bot entry; do not use cross-map .summon.'
             $partyInstanceQuery = "SELECT DISTINCT i.id FROM characters.group_member gm JOIN characters.group_instance gi ON gi.guid=gm.guid JOIN characters.instance i ON i.id=gi.instance WHERE gm.memberGuid=$humanGuid AND i.map=389;"
             Wait-ForHuman { (Invoke-TestSql $partyInstanceQuery) -match '^\d+$' } 300 'human party bound to Ragefire Chasm'
@@ -1052,9 +1113,13 @@ try {
             Write-Host "DUNGEON PARTY READY: all four bots completed entry into Ragefire instance $partyInstance. Use .gm off before normal pulls."
         }
         if ($MixedParty) {
-            if ($RecoveryLoot -and -not $DungeonFixture) { Write-Host 'RECOVERY/LOOT PARTY READY: outdoor pulls are sufficient. Observe native loot and carried food/drink; armor requires a learned eligible spell. Log out when finished.' }
+            if ($GearApply) { Write-Host 'GEAR APPLY READY: whisper Testone gear?, then gear apply once. Wait for confirmed completion and query gear? again. Do not change other items or engage combat. Log out when finished.' }
+            elseif ($GearInspection -and -not $DungeonFixture) { Write-Host 'GEAR INSPECTION READY: whisper gear? or use party gear?. Reports are read-only; inventory must remain unchanged. Log out when finished.' }
+            elseif ($RecoveryLoot -and -not $DungeonFixture) { Write-Host 'RECOVERY/LOOT PARTY READY: outdoor pulls are sufficient. Observe native loot and carried food/drink; armor requires a learned eligible spell. Log out when finished.' }
             else { Write-Host 'MIXED PARTY IN DUNGEON: make a few normal pulls; observe Warrior threat, Mage damage and Priest healing.' }
-            Write-Host 'If convenient, observe one party-member death/resurrection and one party removal/re-invite. No forced wipe is required. Log out when finished.'
+            if ($LootRolls) { Write-Host 'LOOT ROLLS: use Group Loot with an uncommon threshold. Observe native bot need/greed/pass for a qualifying drop; unsupported/random-affix items pass. No item grants are required.' }
+            if ($ControlledLootRoll) { Write-Host 'CONTROLLED ROLL: Oggleflint drops chest 2866. Pass on the human character; after combat/casting ends expect Testone NEED, Testtwo GREED, caster PASS. Confirm the native award to Testone; do not run gear apply.' }
+            if (-not $GearInspection -or $DungeonFixture) { Write-Host 'If convenient, observe one party-member death/resurrection and one party removal/re-invite. No forced wipe is required. Log out when finished.' }
         }
         else { Write-Host 'FULL PARTY IN DUNGEON: make several normal pulls, then deliberately push into a wipe or death. Observe follow, assist, and what each bot does after death.' }
         if ($Interactive) {
@@ -1086,6 +1151,23 @@ try {
         foreach ($bot in $fullPartyBots) {
             $botGuid = $bot.Guid
             Wait-For { (Invoke-TestSql "SELECT online FROM characters.characters WHERE guid=$botGuid;") -eq '0' } 60 "bot slot $($bot.Slot) logout"
+        }
+        if ($ControlledLootRoll) {
+            $need = Select-String -LiteralPath $worldOutput -SimpleMatch 'PB-ROLL: Testone submitted native vote 1 for item 2866 ' -Quiet
+            $greed = Select-String -LiteralPath $worldOutput -SimpleMatch 'PB-ROLL: Testtwo submitted native vote 2 for item 2866 ' -Quiet
+            $controlledAfterStock = [uint32](Invoke-TestSql "SELECT COALESCE(SUM(count),0) FROM characters.item_instance WHERE owner_guid=$characterGuid AND itemEntry=2866;")
+            $award = $controlledAfterStock -eq ($controlledBeforeStock + 1)
+            @{ Need=$need; Greed=$greed; Before=$controlledBeforeStock; After=$controlledAfterStock; SavedAward=$award } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $stage 'controlled-roll-result.json') -Encoding UTF8
+            Write-Host "Controlled roll evidence: Testone need=$need; Testtwo greed=$greed; saved award to Testone=$award. All three are required for acceptance."
+        }
+        if ($GearApply) {
+            $gearAfterIdentity = Invoke-TestSql $gearIdentitySql
+            $gearAfterMapping = Invoke-TestSql $gearMappingSql
+            @{ Identity = $gearAfterIdentity; Mapping = $gearAfterMapping } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $stage 'gear-after.json') -Encoding UTF8
+            if ($gearAfterIdentity -ne $gearBeforeIdentity) { throw 'Gear apply changed the owned item identities/counts/properties.' }
+            if (($gearAfterMapping -replace '\r', '').Trim() -ne $gearExpectedMapping) { throw 'Gear apply persisted mapping differs from the single expected waist move.' }
+            if (-not (Select-String -LiteralPath $worldOutput -SimpleMatch 'PB-EQUIP: Testone result=3' -Quiet)) { throw 'Gear apply lacks native completion evidence.' }
+            Write-Host 'Gear apply confirmed and saved: same owned items and properties; only the expected empty-waist move. Relogin acceptance remains separate.'
         }
         Send-WorldCommand 'server shutdown 0'
         if (-not $worldWorker.Process.WaitForExit(60 * 1000) -or $worldWorker.Process.ExitCode -ne 0) { throw 'Full-party worldserver did not shut down cleanly.' }

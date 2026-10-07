@@ -8,8 +8,48 @@ characters for every spell.
 
 ## Next replay: short version
 
+For a read-only inventory check, use `-GearInspection -ModuleConfig -CheckFullParty
+-ReuseFullPartyFixture -MixedParty -Interactive` with the existing stopped seed.
+This enables the starter-score gate only in the copied realm. Stay at the safe
+outdoor start, invite the roster and whisper `gear?` to one bot, then optionally
+use party `gear?`. Expect a recent bounded report, explicit unknowns for incomplete
+inputs, and no item/slot/durability changes. Dungeon entry is skipped unless
+`-DungeonFixture` is also requested. Log out to shut the disposable services down.
+No combat, new item grant or forced equipment swap is required.
+
+For the explicit native mutation check, add `-GearApply` to that outdoor recipe.
+It enables StarterEquip only in the copy and requires the observed single carried
+item 9758 with an empty waist slot on Testone. Whisper Testone `gear?`, then
+`gear apply` once; wait for confirmed completion and query `gear?` again. Do not
+use party apply or change other items. After logout, the harness compares saved
+owned item identities/properties and requires only that candidate's move into
+slot 5, plus native completion evidence. Before/after JSON stays in ignored
+runtime evidence. Saved database verification is not a relogin observation;
+occupied-slot displacement and broader score models remain separate coverage.
+
 The combined recipe uses `-RecoveryLoot -DungeonFixture`. Recovery alone stays
-outdoors; dungeon mode waits for the human party's Ragefire bind, sends console
+outdoors. Add `-LootRolls -ModuleConfig` for the new optional native vote check:
+it enables StarterScore/Rolls and disables PassOnGroupLoot only in the copy.
+Use ordinary Group Loot with an uncommon threshold; a non-affixed supported drop
+can produce need/greed, while unsupported items pass. Observe the actual native
+choice/outcome and preserve normal party operation. `PB-ROLL` only proves
+submission. No forced item grant or roll is required; missing suitable drops is
+a deferred observation. Dungeon mode waits for the human party's Ragefire bind, sends console
+`joininstance` for all four bots and verifies completion in that instance.
+
+For a deterministic roll check, also pass `-ControlledLootRoll
+-ReuseFullPartyFixture`. This requires the normal prepared offline Warriors with
+chest 2866 and enables native role preparation in the copy. Testone's original
+chest is preserved in a bag; Testtwo keeps his equipped. One copied Oggleflint loot
+source is replaced with a guaranteed single chest 2866, leaving original loot
+rows intact. Use Group Loot/uncommon and pass on the human character. After combat
+and casting end, expect Testone need, Testtwo greed and caster pass; observe the
+award. Leave gear apply unused. The harness checks the saved count increase after
+logout and writes `controlled-roll-result.json`. No drop is inserted into a bot's
+inventory directly; generation, voting and award use native code. Do not reuse
+the modified controlled seed as the baseline for another controlled setup.
+
+Dedicated dungeon entry sends console
 `joininstance` for all four bots and verifies completion in that instance.
 Ordinary cross-map `.summon` lacks the bot transfer acknowledgement path.
 The corrected branch passed parser/mock checks and the October 5 native replay.
@@ -343,3 +383,15 @@ this observation deferred rather than rebuilding the fixture for one feature.
 Autonomous routing, automatic group formation and full class parity are not
 acceptance gates for this human-led milestone. Stop all disposable services when
 the session ends. No runtime was started to prepare this checklist.
+
+For the local coordination batch, use an ordinary multi-enemy pull with enemies
+that survive long enough to observe target changes. Move the existing skull mark
+between already-engaged, unprotected enemies: auto-assisted damage bots should
+reassess after an active cast ends, while explicitly commanded attacks stay on
+their requested target. Missing/removed marks fall back to ordinary donor ranking,
+not necessarily the controller's selection. Avoid moon/control-protected targets.
+Use a two-tank variant only when two actual tank-role members are prepared; native
+main-tank assignment must not be treated as granting a tank spec. Check current
+target retention for the assigned main tank and no automatic cross-tank taunts.
+Restore marks/assignments afterward. If the fixture lacks two tanks, record that
+part as deferred; these are observations within a useful replay, not a forced wipe.

@@ -31,24 +31,28 @@ compatible. See the [module integration guide](modules/README.md) for the build
 boundary. The modules are independently selectable with
 `-DMODULE_MOD_PLAYERBOTS=ON|OFF` and `-DMODULE_MOD_AHBOT=ON|OFF`.
 
-For the published 2026-10-05 coordination/recovery milestone, use the matching
-module revisions below. Windows and Linux modules-enabled worldserver builds
-passed all 324 checks; the preceding Windows modules-disabled build passed 19.
-The level-20 Warrior/Mage/Priest party completed dedicated Ragefire entry and
-normal combat, with observed healing, tank aggro recovery, eating/drinking and
-owner-death holding followed by follow resumption. Test-owned services shut down
-cleanly. Full clears, quantitative mana savings, detailed tank orientation,
-Priest resurrection, optional addon timing and Linux realm runtime remain
-unverified. See the
-[milestone evidence](doc/local/playerbots/PLAYERBOTS_STATE_MILESTONE.md) for limits.
-AHBot implementation is unchanged by this Playerbots batch. The listed Playerbots
-revision is available on GitHub.
+For the 2026-10-07 gear/loot milestone, use the matching module revisions below.
+Windows and Linux modules-enabled worldserver/tests-common builds passed all
+384 checks; the current Windows build with both optional modules disabled passed
+19. The level-20 Warrior/Mage/Priest party has completed dedicated Ragefire entry,
+normal combat and recovery checks. This milestone adds donor-derived starter
+gear readers, explicit native equip, and guarded native loot voting. A controlled
+roll observed need, greed and pass, with the awarded item verified after saving.
+Test-owned services and the compiler container are stopped.
+
+The experimental gear model covers implemented specs at levels 10–39. Optional
+gear/roll gates default off. Full dungeon clears, broad class/item coverage,
+detailed positioning and Linux realm runtime remain unverified. See the
+[roadmap](doc/local/playerbots/PLAYERBOTS_PORT_ROADMAP.md) and module provenance
+for current limits and evidence. AHBot implementation is unchanged by this batch.
+This milestone is committed locally; matching revisions become available to
+other users when both repositories are pushed.
 The earlier accepted [infrastructure milestone](doc/local/playerbots/PLAYERBOTS_INFRASTRUCTURE_MILESTONE.md)
 retains its historical revisions and client lifecycle evidence.
 
 | Module | Repository | Commit |
 | --- | --- | --- |
-| Playerbots | [iotadev/cata-playerbots](https://github.com/iotadev/cata-playerbots) | `9f99b27464a834d25e09422d1cd3c44f101664b0` |
+| Playerbots | [iotadev/cata-playerbots](https://github.com/iotadev/cata-playerbots) | `40f5f7d8229abe77eecc0d7f12ef938601a680c6` |
 | AHBot | [iotadev/cata-ahbot](https://github.com/iotadev/cata-ahbot) | `ac2064e91b02af6b345b492a3f3453614b0087ab` |
 
 Clone each repository into the shown `modules/` directory and check out its

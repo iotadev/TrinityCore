@@ -1,99 +1,94 @@
 # Cataclysm Playerbots roadmap
 
-Updated 2026-10-05. The target is AzerothCore Playerbots and MultiBot functionality
-on native TrinityCore Cataclysm 4.3.4. Reuse current upstream donor behavior where
-it fits; keep Cata's session, map, spell, equipment, loot and database ownership.
-The [dated roadmap](PLAYERBOTS_PORT_ROADMAP_HISTORY_2026-10-04.md),
-[development history](PLAYERBOTS_DEV.md) and module PORTING.md retain the detailed
-source and validation record. This file is the current resume plan.
+Updated 2026-10-07. The goal is AzerothCore Playerbots and MultiBot functionality
+on native TrinityCore Cataclysm 4.3.4. Reuse upstream behavior and preserve Cata's
+session, map, inventory, loot and database ownership.
+
+The near-term gameplay milestone is a useful human-led Warrior/Mage/Priest
+dungeon party. Full class coverage, pets, autonomous populations, quests, travel
+and automatic group formation follow on separate tracks.
 
 ## Current capabilities
 
-The published infrastructure pair (module `70014ce`, core `92f41cf`) has accepted
-native server-origin sessions, bounded character creation, managed roster,
-optional module integration and MultiBot connection lifecycle. Later gameplay
-work is now published through the coordination/recovery milestone; do not reopen
-infrastructure merely to continue it.
+The published coordination/recovery milestone is module `9f99b27`, paired with
+core `eee1755104`. It includes the established module/session infrastructure,
+bounded character creation, managed rosters and MultiBot lifecycle control.
+Combat, noncombat and dead-state engines support starter Warrior/Mage/Priest
+behavior, shared targeting and positioning, recovery, buffs, interrupts and
+native corpse opening. Optional behavior requires its configuration gates.
 
-The shared combat, noncombat and dead-state engines support a bounded human-led
-Warrior/Mage/Priest party: role-aware combat and support, movement/follow/stay,
-spell reach, interrupts, buffs, recovery, corpse opening, ready-check basics and
-learned ground mounts. These are donor-aligned slices, not full class or dungeon
-parity. Earlier outdoor/Ragefire checks observed engagement, healing, tank rescue,
-target-death return, corpse opening and clean logout. The later coordination/
-recovery replay observed repeated healing, tank aggro recovery and eating/drinking.
-Accepted casts and source tests do not establish every native effect.
-The 2026-10-04 outdoor replay observed all four engaging, return to noncombat,
-Priest Renew casts, native corpse opening and group loot removal in chat queries.
-The realm shut down cleanly. Sustained support and addon ACK/restore observations
-continue in the dungeon session; see PLAYERBOTS_STATE_MILESTONE.md for evidence.
-The corrected October 5 Ragefire replay completed all four arrivals and normal
-trash combat with a successful player report and clean shutdown. This closes
-basic party operation; full clears and sustained coordination remain ahead.
+Outdoor and Ragefire checks observed party engagement, damage/healing, tank
+aggro recovery, eating/drinking, owner-death hold and following after recovery.
+Dedicated instance entry works with the prepared fixture. Full dungeon clears,
+broad class/spec parity and detailed positioning remain unqualified.
 
-Default-off MultiBot strategy controls include read-only STATE, single-bot and
-authorized group mutations for the supported combat `focus/threat/potions` and
-noncombat `food/loot` operators. Group dispatch uses copied identities, bounded
-pending batches and a world-thread completion pump. A separate default-off
-GroupMutations gate requires the base and addon-mutation gates. Requests are
-revalidated at execution and unresolved timeouts remain unknown; refresh STATE
-before retrying a toggle. The server closes an unresolved group batch at four
-seconds, ahead of the pinned addon's five-second request timer. Client gameplay
-timing still needs the bundled replay.
+The local gear/loot milestone adds main-tank selection and no-steal protection, active
+auto-assisted DPS reassessment, item/stat readers, starter gear scoring,
+authorized `gear?` inspection and explicit `gear apply`. One empty-waist change
+on Testone passed native completion and saved inventory preservation. Scoring
+covers eight implemented specs at levels 10–39 and remains a limited heuristic.
 
-## Remaining dependencies
+Shared item-usage categories, pure roll-choice rules and non-affixed unowned
+template comparison are implemented locally. They are dependencies for loot
+voting. Optional native need/greed/pass is now connected in local source and
+passed its Windows build and a controlled native need/greed/pass/award check.
+Linux source validation passed; broader runtime qualification remains ahead.
+Its gate defaults off. Automatic equipment management and
+disenchant classification remain ahead. Unknown/unsupported items pass.
 
-The October 5 retry stopped at dungeon entry: the selected recovery harness mode
-skipped dedicated bot entry, and ordinary cross-map summons lacked bot transfer
-completion. The realm stopped cleanly; this attempt adds no gameplay acceptance.
-The recipe now uses explicit `-DungeonFixture` with recovery settings and checks
-all four arrival logs against the human party's instance. Its parser and mocked
-entry branch and corrected native replay passed. See the [handoff](PLAYERBOTS_WORK_PACKETS.md).
-General far-transfer support can be ported separately; phase changes are not an
-evidence-based remedy for this incident.
+## Current validation
 
-- Platform source validation is complete for this candidate: Windows and Linux
-  modules-enabled worldserver builds passed all 324 checks; the preceding Windows
-  module-off worldserver passed 19. Linux used Ubuntu 22.04/GCC 11.4 with normal PCH enabled.
-  Linux realm runtime remains untested. The installed Cata addon reader passed a
-  Lua 5.1 mock of ACK-before-timeout and late-ACK behavior. These checks do not
-  replace in-game qualification.
-  A direct Linux GCC 13.3 strategy/protocol subset also passed 30 cases and 4,380
-  assertions; see PLAYERBOTS_LINUX_STRATEGY_CHECK.md and the milestone evidence.
-- Use the [prepared party fixture](PLAYERBOTS_PARTY_FIXTURE.md) with appropriate
-  level, roles, equipment, consumables and durable enemies. Replay state/control
-  transitions, target loss, sustained tank/healer behavior, recovery/loot and one
-  group strategy ACK/STATE refresh/restore together in the dungeon continuation.
-  Preserve the stopped fixture until a
-  client session is available. Record actual failures as one corrective batch.
-- The basic operational replay passed. The preceding milestone is module
-  `520051d`, core `6b81a13e38`. The newer coordination/recovery module milestone
-  is published on GitHub main as `9f99b27`, with its evidence and harness in this core
-  update. Remaining optional observations can join later dungeon
-  sessions; record their limits when publishing.
-- Continue the human-led dungeon attempt under tank/healer pressure. Fix observed
-  coordination failures through their owning donor behavior. Autonomous account
-  populations, quests, travel and dungeon formation are a separate track.
+| Scope | Verified result | Remaining limit |
+| --- | --- | --- |
+| Current local Windows source | worldserver/tests-common built; 384/384 tests passed; controlled native decisions and saved award observed | Broader runtime coverage and full dungeon readiness remain pending |
+| Current local Linux source | worldserver/tests-common built; 384/384 tests passed | Linux realm runtime remains untested |
+| Published coordination/recovery milestone | Windows/Linux 324 tests; observed party recovery and combat | Earlier baseline, not the current local source |
+| Optional modules disabled | Current Windows worldserver/tests-common built; 19 tests passed | No Linux module-off runtime claim |
+| Native equip replay | One empty-slot move saved; owned item identities/counts/captured properties preserved | Relogin, occupied-slot displacement and broader gear coverage remain open |
 
-## Latest milestone
-
-The published batch adds optional healer mana conservation, consistent tank/front
-versus non-tank/rear chase decisions, and donor food/drink metadata and completion
-handling. Windows and Linux builds passed 324 tests each. A longer Ragefire session
-observed basic healing/aggro recovery, eating/drinking and owner-death hold/follow
-resumption, with clean shutdown. Quantitative mana savings and detailed tank
-orientation remain open; source qualification and gameplay evidence stay separate.
+Linux server runtime remains untested. The Cata test realm and Linux compiler
+container were stopped after their completed checks. Intermediate build counts,
+donor pins and dated evidence belong in module
+[PORTING.md](../../../modules/mod-playerbots/PORTING.md) and the existing
+[milestone evidence](PLAYERBOTS_STATE_MILESTONE.md).
 
 ## Next two batches
 
-1. Port donor main-tank coordination as a bounded shared-role/target-selection
-   batch. Compare explicit main-tank assignment and multi-tank target retention
-   against native Cata group flags without changing session/thread authority.
-2. Continue the human-led dungeon toward a clear rather than repeating the
-   accepted recovery check. Port larger donor feature groups where it exposes a gap;
-   keep full class/spec coverage, pets, travel and autonomy on separate tracks.
+1. Continue the human-led dungeon toward a clear with the existing prepared party.
+   The gear/loot milestone now has Windows/Linux 384-test builds, a current
+   Windows module-off 19-test build, controlled need/greed/pass/saved-award evidence
+   and outgoing review. It is committed locally, awaiting publication; do not
+   repeat its isolated tests. Address actual tank/healer/recovery failures through
+   their owning donor behavior.
+2. Extend the connected loot decisions to natural random-affix drops using the
+   existing collector and verified native roll metadata. Preserve actual Cata
+   property/suffix/factor semantics and unsupported-effect distinctions. Quest/
+   master synchronization, profession/vendor, token and disenchant decisions
+   remain later item-usage groups. Choose subsequent ports to support the party's
+   observed needs, without reopening infrastructure or making every missing
+   category a dungeon prerequisite.
 
-Working rules: keep optional features default-off, retain immutable upstream pins
-in PORTING.md, use copied command identities and native execution checks, and
-distinguish compiled source from observed gameplay. The Warrior facing/idle episode
-remains unconfirmed. No client Linux compatibility work is required.
+Useful optional observations can join that replay: occupied-slot equip and saved
+relogin, command/state transitions, target loss and MultiBot ACK/STATE/restore.
+Their absence is a documented limit, not a reason to force separate tiny tests.
+Multi-tank checks require an actual two-tank fixture.
+
+## Working rules
+
+- Prefer cohesive donor feature batches and one build per meaningful batch.
+  Judge progress by connected gameplay capabilities; test counts are evidence.
+- Keep incomplete input distinct from a negative decision. Template comparison
+  does not establish the identity or eligibility of a particular loot roll.
+- Cata loot votes use the native world/group path. Do not reuse map-owned equip
+  execution or retain Group/Roll pointers across threads.
+- Use the [prepared fixture](PLAYERBOTS_PARTY_FIXTURE.md), with durable enemies
+  and current roles, gear and consumables. Dedicated dungeon entry must confirm
+  all bots in the party's instance; ordinary cross-map summons are not a substitute.
+- Preserve the native core and optional-module boundaries. General far-transfer
+  support is separate work; the earlier entry failure was not proven phasing.
+- Keep public documentation portable and keep local runtime evidence ignored.
+  No Linux client compatibility work is required.
+
+The [handoff](PLAYERBOTS_WORK_PACKETS.md) contains the concrete resume sequence.
+The [dated roadmap](PLAYERBOTS_PORT_ROADMAP_HISTORY_2026-10-04.md),
+[development history](PLAYERBOTS_DEV.md) and module provenance retain older detail.
