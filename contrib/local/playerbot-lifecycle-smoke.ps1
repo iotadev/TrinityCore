@@ -1,11 +1,15 @@
 param([Parameter(Mandatory)][ValidateNotNullOrEmpty()][string]$Seed,
     [Parameter(Mandatory)][ValidateNotNullOrEmpty()][string]$MySqlHome,
     [string]$BuildDirectory = 'build/bin/RelWithDebInfo', [string]$DataDirectory, [string]$ClassDumpDirectory, [string]$SeedRepository, [switch]$SkipBot, [switch]$ModuleConfig,
+    [ValidateRange(1024,65535)][int]$ContextAuthPort = 3724,
+    [ValidateRange(1024,65535)][int]$ContextWorldPort = 8085,
+    [ValidateRange(1024,65535)][int]$ContextInstancePort = 8086,
+    [ValidateRange(1024,65535)][int]$ContextDatabasePort = 13306,
     [switch]$CheckFactory, [switch]$CheckManagedClient, [switch]$ReuseManagedClientFixture,
     [ValidatePattern('^[A-Za-z0-9]{3,16}$')][string]$ManagedClientPassword,
     [switch]$Interactive, [switch]$RecoveryLoot, [switch]$RoleFixture, [switch]$StrategyFixture, [switch]$DungeonFixture,
-    [switch]$HealerSaveMana, [switch]$GearInspection, [switch]$GearApply, [switch]$LootRolls, [switch]$ControlledLootRoll,
-    [switch]$CheckRosterOnly,
+    [switch]$HealerSaveMana, [switch]$GearInspection, [switch]$GearApply, [switch]$LootRolls, [switch]$ControlledLootRoll, [switch]$ContextCapture, [switch]$ContextDiagnostics, [switch]$QuestFixture, [switch]$QuestAbandon,
+    [switch]$CheckRosterOnly, [switch]$ContextActionHistory, [switch]$ContextHistoryProbe,
     [switch]$CheckNearTeleport,
     [ValidateRange(0, 600)][int]$IdleSeconds = 125,
     [ValidateRange(0, 600)][int]$PostStopSeconds = 0,
@@ -31,6 +35,10 @@ if ($CheckManagedClient) {
 if ($Interactive -and -not $CheckFullParty) { throw '-Interactive currently requires -CheckFullParty.' }
 if ($MixedParty -and -not $CheckFullParty) { throw '-MixedParty requires -CheckFullParty.' }
 if ($RecoveryLoot -and (-not $MixedParty -or -not $Interactive)) { throw '-RecoveryLoot requires the interactive mixed-party scenario.' }
+if ($QuestFixture -and (-not $RecoveryLoot -or -not $CheckFullParty -or -not $ReuseFullPartyFixture -or -not $ModuleConfig)) {
+    throw '-QuestFixture requires the reused interactive recovery/mixed-party module fixture.'
+}
+if ($QuestAbandon -and -not $QuestFixture) { throw '-QuestAbandon requires the explicit copied -QuestFixture scenario.' }
 if ($HealerSaveMana -and (-not $RecoveryLoot -or -not $ModuleConfig -or -not $EnginePriestHeal)) { throw '-HealerSaveMana requires -RecoveryLoot -ModuleConfig -EnginePriestHeal.' }
 if ($GearInspection -and (-not $CheckFullParty -or -not $Interactive -or -not $MixedParty -or -not $ModuleConfig)) { throw '-GearInspection requires -CheckFullParty -Interactive -MixedParty -ModuleConfig.' }
 if ($GearApply -and (-not $GearInspection -or $DungeonFixture -or $RoleFixture -or $RecoveryLoot)) { throw '-GearApply requires the standalone outdoor -GearInspection fixture.' }
@@ -38,6 +46,13 @@ if ($LootRolls -and (-not $RecoveryLoot -or -not $DungeonFixture -or -not $Modul
 if ($ControlledLootRoll) {
     if (-not $LootRolls -or -not $ReuseFullPartyFixture) { throw '-ControlledLootRoll requires -LootRolls and the reused offline full-party fixture.' }
     $RoleFixture = $true
+}
+if ($ContextCapture -and (-not $CheckFullParty -or -not $ReuseFullPartyFixture -or (-not $Interactive -and -not $ContextHistoryProbe) -or -not $MixedParty -or -not $ModuleConfig)) { throw '-ContextCapture requires the reused mixed-party module fixture, interactive or explicitly headless history probe.' }
+if ($ContextDiagnostics -and -not $ContextCapture) { throw '-ContextDiagnostics requires -ContextCapture.' }
+if ($ContextActionHistory -and -not $ContextCapture) { throw '-ContextActionHistory requires -ContextCapture.' }
+if ($ContextHistoryProbe -and (-not $ContextActionHistory -or -not $CheckRosterOnly)) { throw '-ContextHistoryProbe requires -ContextActionHistory and -CheckRosterOnly.' }
+if (($ContextAuthPort -ne 3724 -or $ContextWorldPort -ne 8085 -or $ContextInstancePort -ne 8086 -or $ContextDatabasePort -ne 13306) -and -not $ContextCapture) {
+    throw 'Alternate context play ports require -ContextCapture.'
 }
 if ($DungeonFixture -and (-not $CheckFullParty -or -not $MixedParty -or -not $Interactive -or $CheckRosterOnly)) { throw '-DungeonFixture requires -CheckFullParty -MixedParty -Interactive and cannot use -CheckRosterOnly.' }
 if ($RoleFixture -and (-not $MixedParty -or -not $ModuleConfig)) { throw '-RoleFixture requires -MixedParty and -ModuleConfig.' }
@@ -154,7 +169,7 @@ function Invoke-TestSql([string]$sql) {
     $psi.RedirectStandardInput = $true
     $psi.RedirectStandardOutput = $true
     $psi.RedirectStandardError = $true
-    foreach ($argument in @('--no-defaults','--protocol=TCP','--host=127.0.0.1','--port=13306','--user=cata_smoke','--batch','--skip-column-names','--connect-timeout=3')) { $psi.ArgumentList.Add($argument) }
+    foreach ($argument in @('--no-defaults','--protocol=TCP','--host=127.0.0.1',"--port=$ContextDatabasePort",'--user=cata_smoke','--batch','--skip-column-names','--connect-timeout=3')) { $psi.ArgumentList.Add($argument) }
     [void]$psi.Environment.Remove('PATH')
     $psi.Environment['MYSQL_PWD'] = $credential.password
     $process = [Diagnostics.Process]::Start($psi)
@@ -167,6 +182,46 @@ function Invoke-TestSql([string]$sql) {
     return $stdout.Result.Trim()
 }
 
+function Read-TestQuestState([string]$guids) {
+    if ($guids -notmatch '^\d+(,\d+){4}$') { throw 'Quest capture requires the five validated fixture GUIDs.' }
+    # Native Cata status 1 = complete, 3 = incomplete, 5 = failed. At most 25 active quests
+    # per character. This is saved-state evidence, not a quest grant or relogin.
+    $saved = Invoke-TestSql "SELECT guid,quest,status FROM characters.character_queststatus WHERE guid IN ($guids) AND status IN (1,3,5) ORDER BY guid,quest LIMIT 126;"
+    $lines = if ($saved) { @($saved -split '\r?\n') } else { @() }
+    if ($lines.Count -gt 125) { throw 'Saved active quest capture exceeded the five-character bound.' }
+    foreach ($line in $lines) {
+        if ($line -notmatch '^\d+\t\d+\t[135]$') { throw 'Invalid native quest-state row.' }
+        $fields = $line -split "`t"
+        [pscustomobject]@{ Guid=[uint32]$fields[0]; Quest=[uint32]$fields[1]; Status=[uint32]$fields[2] }
+    }
+}
+
+function Read-TestRewardState([string]$guids) {
+    if ($guids -notmatch '^\d+(,\d+){4}$') { throw 'Reward capture requires the five validated fixture GUIDs.' }
+    $result = @{}
+    $queries = @(
+        @{ Name='Rewarded'; Fields=@('Guid','Quest','Active'); Limit=500; Sql="SELECT guid,quest,active FROM characters.character_queststatus_rewarded WHERE guid IN ($guids) ORDER BY guid,quest LIMIT 501;" },
+        # Inventory-mapped ownership, including bank storage, not orphan item rows.
+        @{ Name='InventoryTotals'; Fields=@('Guid','Entry','Count'); Limit=2560; Sql="SELECT c.guid,i.itemEntry,SUM(i.count) FROM characters.character_inventory c JOIN characters.item_instance i ON i.guid=c.item AND i.owner_guid=c.guid WHERE c.guid IN ($guids) GROUP BY c.guid,i.itemEntry ORDER BY c.guid,i.itemEntry LIMIT 2561;" },
+        @{ Name='Characters'; Fields=@('Guid','Level','Xp','Money'); Limit=5; Sql="SELECT guid,level,xp,money FROM characters.characters WHERE guid IN ($guids) ORDER BY guid LIMIT 6;" }
+    )
+    foreach ($query in $queries) {
+        $saved = Invoke-TestSql $query.Sql
+        $lines = if ($saved) { @($saved -split '\r?\n') } else { @() }
+        if ($lines.Count -gt $query.Limit) { throw "Reward evidence exceeded its $($query.Name) bound; no partial proof accepted." }
+        $result[$query.Name] = @(foreach ($line in $lines) {
+            $fields = $line -split "`t"
+            if ($fields.Count -ne $query.Fields.Count -or @($fields | Where-Object { $_ -notmatch '^\d+$' }).Count) {
+                throw 'Malformed numeric reward-state row.'
+            }
+            $row = [ordered]@{}
+            for ($field = 0; $field -lt $fields.Count; ++$field) { $row[$query.Fields[$field]] = [uint64]$fields[$field] }
+            [pscustomobject]$row
+        })
+    }
+    return $result
+}
+
 function Send-WorldCommand([string]$command, [switch]$Sensitive) {
     if ($worldWorker.Process.HasExited) { throw 'Worldserver exited before command.' }
     $worldWorker.Process.StandardInput.WriteLine($command)
@@ -176,6 +231,11 @@ function Send-WorldCommand([string]$command, [switch]$Sensitive) {
 }
 
 function Write-TestWorldConfig([string]$text) {
+    $text = [regex]::Replace($text, '(?m)^[ \t]*Playerbots\.Diagnostics\.Actions\.Enabled\s*=.*\r?\n?', '')
+    $text += "`r`nPlayerbots.Diagnostics.Actions.Enabled = $([int][bool]$ContextActionHistory)`r`n"
+    # Do not inherit enabled quest mutation gates from an earlier copied seed.
+    $text = [regex]::Replace($text, '(?m)^[ \t]*Playerbots\.Quest\.(AcceptShared|AcceptNpc|Reward|Inspection|Share|SyncLootWithPlayer|Abandon)\.Enabled\s*=.*\r?\n?', '')
+    $text += "`r`nPlayerbots.Quest.AcceptShared.Enabled = $([int][bool]$QuestFixture)`r`nPlayerbots.Quest.AcceptNpc.Enabled = $([int][bool]$QuestFixture)`r`nPlayerbots.Quest.Reward.Enabled = $([int][bool]$QuestFixture)`r`nPlayerbots.Quest.Inspection.Enabled = $([int][bool]$QuestFixture)`r`nPlayerbots.Quest.Share.Enabled = $([int][bool]$QuestFixture)`r`nPlayerbots.Quest.SyncLootWithPlayer.Enabled = $([int][bool]$QuestFixture)`r`nPlayerbots.Quest.Abandon.Enabled = $([int][bool]$QuestAbandon)`r`n"
     if ($ModuleConfig) {
         $moduleDirectory = Join-Path $stage 'modules'
         [void](New-Item -ItemType Directory -Path $moduleDirectory -Force)
@@ -184,6 +244,9 @@ function Write-TestWorldConfig([string]$text) {
         $text = [regex]::Replace($text, '(?m)^Modules\.ConfigDirectory\s*=.*\r?\n?', '')
         $text += "`r`nModules.ConfigDirectory = modules`r`n"
         [IO.File]::WriteAllText((Join-Path $moduleDirectory 'playerbots.conf'), "[playerbots]`r`n" + ($botLines -join "`r`n") + "`r`n", [Text.UTF8Encoding]::new($false))
+        $contextIds = if ($ContextCapture) { (@($humanGuid) + @($fullPartyBots.Guid)) -join ',' } else { '' }
+        $contextConfig = "[context-api]`r`nContextAPI.Enabled = $([int][bool]$ContextCapture)`r`nContextAPI.Characters = `"$contextIds`"`r`nContextAPI.SnapshotFile = `"context-api/snapshot.json`"`r`nContextAPI.IntervalMs = 1000`r`nContextAPI.DiagnosticDetails = $([int][bool]$ContextDiagnostics)`r`nContextAPI.ActionHistory = $([int][bool]$ContextActionHistory)`r`n"
+        [IO.File]::WriteAllText((Join-Path $moduleDirectory 'context-api.conf'), $contextConfig, [Text.UTF8Encoding]::new($false))
     }
     [IO.File]::WriteAllText((Join-Path $stage 'worldserver.conf'), $text, [Text.UTF8Encoding]::new($false))
 }
@@ -205,7 +268,7 @@ function Wait-ForHuman([scriptblock]$condition, [int]$seconds, [string]$descript
     Wait-For $condition $(if ($Interactive) { 0 } else { $seconds }) $description
 }
 
-foreach ($port in ($(if ($CheckFollow -or $CheckCombat -or $CheckFullParty -or $PrepareClassFixture) { @(13306, 8085, 8086, 3724) } else { @(13306, 18085) + $(if ($CheckClientCollision) { 13724 }) }))) {
+foreach ($port in ($(if ($CheckFollow -or $CheckCombat -or $CheckFullParty -or $PrepareClassFixture) { @($ContextDatabasePort, $ContextWorldPort, $ContextInstancePort, $ContextAuthPort) } else { @($ContextDatabasePort, 18085) + $(if ($CheckClientCollision) { 13724 }) }))) {
     $listener = [Net.Sockets.TcpListener]::new([Net.IPAddress]::Loopback, $port)
     try { $listener.Start() } finally { $listener.Stop() }
 }
@@ -236,6 +299,9 @@ try {
         if (Test-Path -LiteralPath (Join-Path $built 'authserver.pdb')) { Copy-Item -LiteralPath (Join-Path $built 'authserver.pdb') -Destination $stage }
     }
     $config = [IO.File]::ReadAllText((Join-Path $seedPath 'worldserver.conf'))
+    $databasePrefix = '(?m)^((?:Login|World|Character|Hotfix)DatabaseInfo\s*=\s*"127\.0\.0\.1;)\d+(;)'
+    if ([regex]::Matches($config, $databasePrefix).Count -ne 4) { throw 'Copied fixture must identify four loopback database connections.' }
+    $config = [regex]::Replace($config, $databasePrefix, [Text.RegularExpressions.MatchEvaluator]{ param($match) $match.Groups[1].Value + $ContextDatabasePort + $match.Groups[2].Value })
     if ($DataDirectory) {
         $config = [regex]::Replace($config, '(?m)^DataDir\s*=.*$', [Text.RegularExpressions.MatchEvaluator]{ param($match) 'DataDir = "' + $gameData.Replace('\','/') + '"' })
     }
@@ -246,7 +312,9 @@ try {
     $logsDir = (Join-Path $stage 'logs').Replace('\','/')
     $config = [regex]::Replace($config, '(?m)^LogsDir\s*=.*$', 'LogsDir = "' + $logsDir + '"')
     if ($CheckFollow -or $CheckCombat -or $CheckFullParty -or $PrepareClassFixture) {
-        $config = [regex]::Replace($config, '(?m)^WorldServerPort\s*=.*$', 'WorldServerPort = 8085')
+        $config = [regex]::Replace($config, '(?m)^WorldServerPort\s*=.*$', "WorldServerPort = $ContextWorldPort")
+        if ([regex]::Matches($config, '(?m)^InstanceServerPort\s*=').Count -ne 1) { throw 'Copied fixture must identify exactly one instance listener.' }
+        $config = [regex]::Replace($config, '(?m)^InstanceServerPort\s*=.*$', "InstanceServerPort = $ContextInstancePort")
     }
     if ($CheckFactory) {
         $config = [regex]::Replace($config, '(?m)^WorldServerPort\s*=.*$', 'WorldServerPort = 18085')
@@ -255,15 +323,19 @@ try {
     }
     if ($CheckClientCollision -or $CheckFollow -or $CheckCombat -or $CheckFullParty -or $PrepareClassFixture) {
         $authConfig = [IO.File]::ReadAllText((Join-Path $seedPath 'authserver.conf'))
+        if ([regex]::Matches($authConfig, $databasePrefix).Count -ne 1) { throw 'Copied auth fixture must identify one loopback database connection.' }
+        $authConfig = [regex]::Replace($authConfig, $databasePrefix, [Text.RegularExpressions.MatchEvaluator]{ param($match) $match.Groups[1].Value + $ContextDatabasePort + $match.Groups[2].Value })
         $authConfig = [regex]::Replace($authConfig, '(?m)^LogsDir\s*=.*$', 'LogsDir = "' + $logsDir + '"')
         if ($CheckFollow -or $CheckCombat -or $CheckFullParty -or $PrepareClassFixture) {
-            $authConfig = [regex]::Replace($authConfig, '(?m)^RealmServerPort\s*=.*$', 'RealmServerPort = 3724')
+            $authConfig = [regex]::Replace($authConfig, '(?m)^RealmServerPort\s*=.*$', "RealmServerPort = $ContextAuthPort")
         }
         [IO.File]::WriteAllText((Join-Path $stage 'authserver.conf'), $authConfig, [Text.UTF8Encoding]::new($false))
     }
 
-    $mysqlWorker = Start-Worker $mysqlServerExe @('--no-defaults',"--basedir=$mysqlHome",("--datadir="+(Join-Path $stage 'mysql-data')),'--bind-address=127.0.0.1','--port=13306','--mysqlx=OFF','--skip-name-resolve','--skip-log-bin','--lower-case-table-names=1','--innodb-buffer-pool-size=512M','--innodb-redo-log-capacity=1G','--innodb-flush-log-at-trx-commit=2','--max-allowed-packet=256M',("--log-error="+(Join-Path $stage 'mysql-error.log'))) 'mysql'
-    $deadline = (Get-Date).AddSeconds(90)
+    $mysqlWorker = Start-Worker $mysqlServerExe @('--no-defaults',"--basedir=$mysqlHome",("--datadir="+(Join-Path $stage 'mysql-data')),'--bind-address=127.0.0.1',"--port=$ContextDatabasePort",'--mysqlx=OFF','--skip-name-resolve','--skip-log-bin','--lower-case-table-names=1','--innodb-buffer-pool-size=512M','--innodb-redo-log-capacity=1G','--innodb-flush-log-at-trx-commit=2','--max-allowed-packet=256M',("--log-error="+(Join-Path $stage 'mysql-error.log'))) 'mysql'
+    # The observer probe can run beside a separate copied realm on independent
+    # ports; allow bounded additional cold-database initialization time.
+    $deadline = (Get-Date).AddSeconds($(if ($ContextHistoryProbe) { 180 } else { 90 }))
     do {
         if ($mysqlWorker.Process.HasExited) { throw 'Cloned MySQL exited before ready.' }
         try { $dbReady = (Invoke-TestSql 'SELECT 1;') -eq '1' } catch { $dbReady = $false }
@@ -272,7 +344,7 @@ try {
     if (-not $dbReady) { throw 'Cloned MySQL did not become ready.' }
 
     if ($CheckFollow -or $CheckCombat -or $CheckFullParty -or $PrepareClassFixture) {
-        [void](Invoke-TestSql "UPDATE auth.realmlist SET port=8085, address='127.0.0.1', localAddress='127.0.0.1' WHERE id=1;")
+        [void](Invoke-TestSql "UPDATE auth.realmlist SET port=$ContextWorldPort, address='127.0.0.1', localAddress='127.0.0.1' WHERE id=1;")
     }
 
     $identity = Invoke-TestSql "SELECT a.id, c.guid, c.class, c.online FROM auth.account a JOIN characters.characters c ON c.account=a.id WHERE a.username='CATASMOKE' AND c.name='Testone';"
@@ -318,7 +390,7 @@ try {
         $humanFields = $human -split "`t"
         if ($humanFields.Count -ne 4 -or $humanFields[3] -ne '0') { throw "Full-party fixture needs an offline human character named Test; found: $human" }
         $humanGuid = [uint32]$humanFields[1]
-        if (($RecoveryLoot -or $RoleFixture -or $GearInspection) -and $ReuseFullPartyFixture) {
+        if (($RecoveryLoot -or $RoleFixture -or $GearInspection -or $ContextHistoryProbe) -and $ReuseFullPartyFixture) {
             # The copied database may retain the previous test party. Normalize
             # only groups wholly owned by these five offline fixture characters.
             $fixtureRows = @((Invoke-TestSql "SELECT guid FROM characters.characters WHERE name IN ('Test','Testone','Testtwo','Botmage','Botpriest') AND online=0;") -split "`r?`n")
@@ -463,6 +535,12 @@ try {
     # A prior disposable stage can already contain generated settings.
     $config = [regex]::Replace($config, '(?m)^Playerbots\.Dev\.(Enabled|AccountId[2-4]?|CharacterGuid[2-4]?)\s*=.*\r?\n?', '')
     $config += "`r`nPlayerbots.Dev.Enabled = $([int](-not ($PrepareClassFixture -or $CheckManagedClient)))`r`nPlayerbots.Dev.AccountId = $accountId`r`nPlayerbots.Dev.CharacterGuid = $characterGuid`r`n"
+    if ($ContextHistoryProbe) {
+        # Exercise existing passive engine ticks without an online controller.
+        # This gameplay fixture option is distinct from read-only collection.
+        $config = [regex]::Replace($config, '(?m)^Playerbots\.Rest\.Enabled\s*=.*\r?\n?', '')
+        $config += "Playerbots.Rest.Enabled = 1`r`n"
+    }
     if ($EngineWarriorBuff) {
         $config = [regex]::Replace($config, '(?m)^Playerbots\.Dev\.EngineWarriorBuff\s*=.*\r?\n?', '')
         $config += "Playerbots.Dev.EngineWarriorBuff = 1`r`n"
@@ -600,7 +678,7 @@ try {
         Start-Sleep -Seconds 2
         if ($authWorker.Process.HasExited) { throw 'Authserver exited before the client-collision check.' }
         $authSocket = [Net.Sockets.TcpClient]::new()
-        try { $authSocket.Connect('127.0.0.1', $(if ($CheckFollow -or $CheckCombat -or $CheckFullParty -or $PrepareClassFixture) { 3724 } else { 13724 })) } finally { $authSocket.Dispose() }
+        try { $authSocket.Connect('127.0.0.1', $(if ($CheckFollow -or $CheckCombat -or $CheckFullParty -or $PrepareClassFixture) { $ContextAuthPort } else { 13724 })) } finally { $authSocket.Dispose() }
     }
     if ($CheckManagedClient) {
         $existingClient = (Invoke-TestSql "SELECT COUNT(*) FROM auth.account WHERE username='PBCLIENT';") -eq '1'
@@ -895,7 +973,7 @@ try {
         return
     }
     if ($CheckPendingLoad -or $CheckDrainTimeout) {
-        $lockArgs = @('--no-defaults','--protocol=TCP','--host=127.0.0.1','--port=13306','--user=cata_smoke',
+        $lockArgs = @('--no-defaults','--protocol=TCP','--host=127.0.0.1',"--port=$ContextDatabasePort",'--user=cata_smoke',
             '--database=characters','--batch','--skip-column-names','--unbuffered','--connect-timeout=3')
         $lockWorker = Start-Worker $mysqlExe $lockArgs 'mysql-lock' @{ MYSQL_PWD=$credential.password }
         $lockOutput = Join-Path $stage 'mysql-lock.stdout.log'
@@ -980,6 +1058,11 @@ try {
                 Wait-For { (Invoke-TestSql "SELECT level FROM characters.characters WHERE guid=$botGuid AND online=0;") -eq '20' } 30 "recovery fixture slot $($bot.Slot) level 20"
             }
         }
+        if ($QuestFixture) {
+            $questCaptureGuids = (@($humanGuid) + @($fullPartyBots.Guid)) -join ','
+            $questBefore = @(Read-TestQuestState $questCaptureGuids)
+            $questRewardBefore = Read-TestRewardState $questCaptureGuids
+        }
         if ($GearApply) {
             # Capture persisted inventory before login. Only the observed empty
             # waist candidate is accepted by this fixture; no item is created.
@@ -994,9 +1077,26 @@ try {
             }) -join "`n").Trim()
             @{ Identity = $gearBeforeIdentity; Mapping = $gearBeforeMapping; Candidate = $gearCandidate } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $stage 'gear-before.json') -Encoding UTF8
         }
-        if ($GearInspection -and -not $DungeonFixture) { Send-WorldCommand 'tele name Test Tranquillien' }
+        # Stage meaningful party checks away from the level-one homebind, including
+        # dungeon checks before the human enters the portal. Keep everyone on map 530.
+        $stageAtTranquillien = $RecoveryLoot -or $RoleFixture -or $GearInspection -or $ContextCapture
+        if ($stageAtTranquillien) {
+            if ((Invoke-TestSql "SELECT COUNT(*) FROM world.game_tele WHERE name='Tranquillien' AND map=530;") -ne '1') {
+                throw 'Party staging requires one native Tranquillien destination on map 530.'
+            }
+            Send-WorldCommand 'tele name Test Tranquillien'
+            Wait-For {
+                (Invoke-TestSql "SELECT COUNT(*) FROM characters.characters c JOIN world.game_tele t ON t.name='Tranquillien' WHERE c.guid=$humanGuid AND c.online=0 AND c.map=t.map AND c.instance_id=0 AND ABS(c.position_x-t.position_x)<1 AND ABS(c.position_y-t.position_y)<1 AND ABS(c.position_z-t.position_z)<1;") -eq '1'
+            } 30 'offline human staged at Tranquillien'
+        }
         foreach ($bot in $fullPartyBots) {
-            if ($RoleFixture -or ($GearInspection -and -not $DungeonFixture)) { Send-WorldCommand "tele name $($bot.Name) Tranquillien" }
+            if ($stageAtTranquillien) {
+                Send-WorldCommand "tele name $($bot.Name) Tranquillien"
+                $stagingGuid = $bot.Guid
+                Wait-For {
+                    (Invoke-TestSql "SELECT COUNT(*) FROM characters.characters c JOIN world.game_tele t ON t.name='Tranquillien' WHERE c.guid=$stagingGuid AND c.online=0 AND c.map=t.map AND c.instance_id=0 AND ABS(c.position_x-t.position_x)<1 AND ABS(c.position_y-t.position_y)<1 AND ABS(c.position_z-t.position_z)<1;") -eq '1'
+                } 30 "offline bot slot $($bot.Slot) staged at Tranquillien"
+            }
             Send-WorldCommand "server playerbotdev slot $($bot.Slot) start"
             $botGuid = $bot.Guid
             Wait-For { (Invoke-TestSql "SELECT online, map FROM characters.characters WHERE guid=$botGuid;") -eq "1$([char]9)530" } 90 "bot slot $($bot.Slot) online on outdoor map"
@@ -1029,6 +1129,29 @@ try {
             }
         }
         if ($CheckRosterOnly) {
+            if ($ContextHistoryProbe) {
+                $historyPath = Join-Path $stage 'context-api/snapshot.json'
+                Wait-For {
+                    if (-not (Test-Path -LiteralPath $historyPath)) { return $false }
+                    $historyStream = $null; $historyReader = $null
+                    try {
+                        $historyStream = [IO.File]::Open($historyPath, [IO.FileMode]::Open,
+                            [IO.FileAccess]::Read, ([IO.FileShare]::ReadWrite -bor [IO.FileShare]::Delete))
+                        $historyReader = [IO.StreamReader]::new($historyStream)
+                        $historyText = $historyReader.ReadToEnd()
+                        $capture = $historyText | ConvertFrom-Json
+                    } catch [IO.IOException] { return $false }
+                    finally {
+                        if ($historyReader) { $historyReader.Dispose() }
+                        elseif ($historyStream) { $historyStream.Dispose() }
+                    }
+                    $events = @($capture.entities | ForEach-Object { $_.action_history.events } | Where-Object { $_ })
+                    if ($events.Count -eq 0) { return $false }
+                    [IO.File]::WriteAllText((Join-Path $stage 'context-history-online.json'), $historyText, [Text.UTF8Encoding]::new($false))
+                    return $true
+                } 60 'copied native engine action history publication'
+                Write-Host 'Native action history captured without a client; this checks publication, not combat outcome.'
+            }
             if ($CheckNearTeleport) {
                 $awayDestination = Invoke-TestSql "SELECT name FROM world.game_tele WHERE map=530 AND name LIKE 'Silvermoon%' ORDER BY name;"
                 if (-not $awayDestination -or $awayDestination -notmatch '^[A-Za-z][A-Za-z0-9]*$') {
@@ -1082,6 +1205,8 @@ try {
             return
         }
         Write-Host 'FULL PARTY READY: log into Test on the disposable Test realm using its fixture account credentials.'
+        if ($QuestFixture) { Write-Host 'QUEST FIXTURE: ordinary sharing, accept <quest ID> and reward <quest ID> <item ID> enabled in this copy only. Use a real offered quest near Tranquillien; no forced completion or log edits. Native completion/persistence are separate from queued replies.' }
+        if ($ContextCapture) { Write-Host "CONTEXT CAPTURE: five configured characters; read-only snapshot at $stage/context-api/snapshot.json. Compare live identity, health/resources, combat, map/instance and bot engine state with the client." }
         if ($Interactive) { Write-Host "INTERACTIVE: human steps have no deadline. Log out when finished; to stop at any step create $stage/stop.request." }
         Wait-ForHuman { (Invoke-TestSql "SELECT online, map FROM characters.characters WHERE guid=$humanGuid;") -eq "1$([char]9)530" } 600 'human Test on outdoor map 530'
         if (-not $MixedParty) {
@@ -1117,7 +1242,7 @@ try {
             elseif ($GearInspection -and -not $DungeonFixture) { Write-Host 'GEAR INSPECTION READY: whisper gear? or use party gear?. Reports are read-only; inventory must remain unchanged. Log out when finished.' }
             elseif ($RecoveryLoot -and -not $DungeonFixture) { Write-Host 'RECOVERY/LOOT PARTY READY: outdoor pulls are sufficient. Observe native loot and carried food/drink; armor requires a learned eligible spell. Log out when finished.' }
             else { Write-Host 'MIXED PARTY IN DUNGEON: make a few normal pulls; observe Warrior threat, Mage damage and Priest healing.' }
-            if ($LootRolls) { Write-Host 'LOOT ROLLS: use Group Loot with an uncommon threshold. Observe native bot need/greed/pass for a qualifying drop; unsupported/random-affix items pass. No item grants are required.' }
+            if ($LootRolls) { Write-Host 'LOOT ROLLS: use Group Loot with an uncommon threshold. Observe native bot need/greed/pass for a qualifying drop; unsupported or unverified affix inputs pass. No item grants are required.' }
             if ($ControlledLootRoll) { Write-Host 'CONTROLLED ROLL: Oggleflint drops chest 2866. Pass on the human character; after combat/casting ends expect Testone NEED, Testtwo GREED, caster PASS. Confirm the native award to Testone; do not run gear apply.' }
             if (-not $GearInspection -or $DungeonFixture) { Write-Host 'If convenient, observe one party-member death/resurrection and one party removal/re-invite. No forced wipe is required. Log out when finished.' }
         }
@@ -1171,6 +1296,16 @@ try {
         }
         Send-WorldCommand 'server shutdown 0'
         if (-not $worldWorker.Process.WaitForExit(60 * 1000) -or $worldWorker.Process.ExitCode -ne 0) { throw 'Full-party worldserver did not shut down cleanly.' }
+        if ($QuestFixture) {
+            $questAfter = @(Read-TestQuestState $questCaptureGuids)
+            $questRewardAfter = Read-TestRewardState $questCaptureGuids
+            @{ Before=$questBefore; After=$questAfter; Note='Saved active quest presence/status after clean native shutdown; compare with completion replies. Not a relogin or forced acceptance assertion.' } |
+                ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $stage 'quest-state-result.json') -Encoding UTF8
+            Write-Host 'Saved quest states captured before admission and after native shutdown in quest-state-result.json; no quest/log/database mutation was forced.'
+            @{ Before=$questRewardBefore; After=$questRewardAfter; Note='Rewarded history and inventory-mapped totals (including bank), level/XP/money after native shutdown. Deltas may include ordinary gameplay; not a causal grant, item-property, relogin or forced reward assertion.' } |
+                ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $stage 'quest-reward-state-result.json') -Encoding UTF8
+            Write-Host 'Saved reward history/inventory totals captured in quest-reward-state-result.json; compare with native completion and chosen item, not merely quest-log disappearance.'
+        }
         if ($Interactive) { Write-Host 'Interactive party session shut down cleanly; inspect evidence and player report, no mandatory combat/death assertion was made.' }
         else { Write-Host 'Full-party entry, combat, death observation, and clean shutdown completed; inspect logs and player report for behavior.' }
         return
@@ -1228,11 +1363,11 @@ try {
         try { Send-WorldCommand 'server shutdown 0'; [void]$worldWorker.Process.WaitForExit(45000) } catch { }
     }
     if ($null -ne $authWorker -and -not $authWorker.Process.HasExited) {
-        try { $authWorker.Process.Kill(); $authWorker.Process.WaitForExit() } catch { }
+        try { $authWorker.Process.Kill($true); $authWorker.Process.WaitForExit() } catch { }
     }
     if ($dbReady) { try { [void](Invoke-TestSql 'SHUTDOWN;') } catch { } }
     foreach ($worker in $workers) {
-        if (-not $worker.Process.HasExited -and -not $worker.Process.WaitForExit(15000)) { $worker.Process.Kill(); $worker.Process.WaitForExit() }
+        if (-not $worker.Process.HasExited -and -not $worker.Process.WaitForExit(15000)) { $worker.Process.Kill($true); $worker.Process.WaitForExit() }
         try { [void]$worker.OutTask.GetAwaiter().GetResult(); [void]$worker.ErrTask.GetAwaiter().GetResult() } catch { }
         $worker.OutFile.Dispose()
         $worker.ErrFile.Dispose()

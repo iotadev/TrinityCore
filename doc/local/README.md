@@ -22,6 +22,7 @@ and need not exist in a fresh public clone.
 
 - [Roadmap](playerbots/PLAYERBOTS_PORT_ROADMAP.md)
 - [Infrastructure milestone acceptance](playerbots/PLAYERBOTS_INFRASTRUCTURE_MILESTONE.md)
+- [Human-led party/quest milestone](playerbots/PLAYERBOTS_QUEST_MILESTONE.md)
 - [Reference policy and behavior comparisons](playerbots/PLAYERBOTS_REFERENCE_GUIDE.md)
 - [Development history](playerbots/PLAYERBOTS_DEV.md)
 - [Engine integration notes](playerbots/PLAYERBOTS_ENGINE_INTEGRATION_NOTES.md)

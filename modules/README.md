@@ -14,6 +14,15 @@ Module code is statically compiled into the native `game` target. This provides
 source compartmentalization and optional build integration; dynamic loading and
 drop-in AzerothCore compatibility require separate work.
 
+The optional read-only `mod-context-api` exporter is owned by the separate
+`cata-context-api/server-module` project. This development checkout links that
+canonical directory at `modules/mod-context-api`; a portable installation can
+copy the same module sources with the companion installer. It is ignored by the
+core repository and independently selectable with `MODULE_MOD_CONTEXT_API`.
+Its runtime capture gate defaults off. When testing a build with every optional
+module disabled, explicitly set all installed module options to OFF, including
+context-api. Query/MCP planning and schema ownership remain in the companion.
+
 A module's CMake registration can follow this convention:
 
 ```cmake

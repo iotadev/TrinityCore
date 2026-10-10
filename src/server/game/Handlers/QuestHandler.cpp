@@ -437,12 +437,15 @@ void WorldSession::HandleQuestConfirmAccept(WorldPackets::Quest::QuestConfirmAcc
     if (_player->GetSharedQuestID() != uint32(packet.QuestID))
         return;
 
+    // Consume the pending confirmation, but preserve its origin for the native
+    // party/active-quest checks below. Clearing also resets the sharer GUID.
+    ObjectGuid const sharerGuid = _player->GetPlayerSharingQuest();
     _player->ClearQuestSharingInfo();
     Quest const* quest = sObjectMgr->GetQuestTemplate(packet.QuestID);
     if (!quest)
         return;
 
-    Player* originalPlayer = ObjectAccessor::FindPlayer(_player->GetPlayerSharingQuest());
+    Player* originalPlayer = ObjectAccessor::FindPlayer(sharerGuid);
     if (!originalPlayer)
         return;
 

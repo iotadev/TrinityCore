@@ -278,12 +278,23 @@ bool WorldSession::RequestPlayerbotEquip(uint32 requesterGuidLow)
 {
     return IsServerOrigin() && _playerbotHooks && requesterGuidLow && _playerbotHooks->RequestPlayerbotEquip(requesterGuidLow);
 }
+bool WorldSession::RequestPlayerbotQuestCommand(uint32 requesterGuidLow, uint32 quest, uint64 giver, uint32 map, uint32 instance, uint32 operation, uint32 item)
+{
+    // The module validates each operation; read-only inspection has no quest/giver.
+    return IsServerOrigin() && _playerbotHooks && requesterGuidLow &&
+        _playerbotHooks->RequestPlayerbotQuestCommand(requesterGuidLow, quest, giver, map, instance, operation, item);
+}
 bool WorldSession::RequestPlayerbotStrategy(uint32 requesterGuidLow, std::string const& command,
     std::string const& token, std::string const& target, uint64 batch, PlayerbotStrategyBinding const& binding)
 {
     return IsServerOrigin() && _playerbotHooks && requesterGuidLow && command.size() <= 253 && token.size() <= 64 && target.size() <= 64 &&
         _playerbotHooks->RequestPlayerbotStrategy(requesterGuidLow, command, token, target, batch, binding);
 }
+PlayerbotContextState WorldSession::GetPlayerbotContextStateForMap() const
+{
+    return IsServerOrigin() && _playerbotHooks ? _playerbotHooks->GetContextStateForMap() : PlayerbotContextState{};
+}
+
 std::shared_ptr<PlayerbotStrategySnapshot const> WorldSession::GetPlayerbotStrategySnapshot() const
 {
     return IsServerOrigin() && _playerbotHooks ? _playerbotHooks->GetStrategySnapshot() : nullptr;
@@ -618,6 +629,10 @@ bool WorldSession::Update(uint32 diff, PacketFilter& updater)
     {
         if (_playerbotHooks)
             _playerbotHooks->UpdateMap(diff);
+        // Session updates remain scheduled even when an idle player's grid
+        // does not visit Player::Update. Observers still run on the map owner.
+        if (_player && _player->IsInWorld())
+            sScriptMgr->OnPlayerUpdate(_player, diff);
         // Send time sync packet every 5s.
         if (_timeSyncTimer > 0)
         {

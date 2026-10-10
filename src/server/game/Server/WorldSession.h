@@ -28,6 +28,7 @@
 #include "ServerOriginPlayerbotLifecycle.h"
 #include "NativeCharacterCreationReceipt.h"
 #include "PlayerbotStrategyBinding.h"
+#include "PlayerbotContextState.h"
 #include <unordered_map>
 
 #include "AsyncCallbackProcessor.h"
@@ -524,11 +525,13 @@ class TC_GAME_API WorldSession
         void RequestServerOriginInstanceJoin(uint32 mapId);
         bool RequestPlayerbotRange(uint32 requesterGuidLow, std::string const& param);
         bool RequestPlayerbotEquip(uint32 requesterGuidLow);
+        bool RequestPlayerbotQuestCommand(uint32 requesterGuidLow, uint32 quest, uint64 giver, uint32 map, uint32 instance, uint32 operation, uint32 item);
         bool RequestPlayerbotStrategy(uint32 requesterGuidLow, std::string const& command,
             std::string const& token = {}, std::string const& target = {}, uint64 batch = 0,
             PlayerbotStrategyBinding const& binding = {});
         std::shared_ptr<void const> GetPlayerbotRequestIdentity() const { return std::atomic_load(&_playerbotRequestIdentity); }
         std::shared_ptr<PlayerbotStrategySnapshot const> GetPlayerbotStrategySnapshot() const;
+        PlayerbotContextState GetPlayerbotContextStateForMap() const;
         bool RequestPlayerbotRebuff(uint32 requesterGuidLow);
         bool RequestPlayerbotStay(uint32 requesterGuidLow);
         uint32 GetPlayerbotStrategyRoleMask() const;

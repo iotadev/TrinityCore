@@ -31,28 +31,34 @@ compatible. See the [module integration guide](modules/README.md) for the build
 boundary. The modules are independently selectable with
 `-DMODULE_MOD_PLAYERBOTS=ON|OFF` and `-DMODULE_MOD_AHBOT=ON|OFF`.
 
-For the 2026-10-07 gear/loot milestone, use the matching module revisions below.
-Windows and Linux modules-enabled worldserver/tests-common builds passed all
-384 checks; the current Windows build with both optional modules disabled passed
-19. The level-20 Warrior/Mage/Priest party has completed dedicated Ragefire entry,
-normal combat and recovery checks. This milestone adds donor-derived starter
-gear readers, explicit native equip, and guarded native loot voting. A controlled
-roll observed need, greed and pass, with the awarded item verified after saving.
-Test-owned services and the compiler container are stopped.
+For the October 2026 human-led party/quest milestone, use the matching module
+revisions below. It combines the earlier gear/loot work with native quest sharing,
+acceptance, inspection and explicit rewards. Four bots accepted and completed
+one real quest; one bot's explicit turn-in and chosen reward were saved. This
+does not establish automatic quest travel or turn-in. Native sharing availability
+and confirmation identity repairs retain core eligibility checks, including
+when Playerbots is disabled.
+
+Windows and Linux modules-enabled worldserver/tests-common passed 431 tests
+each. A fresh Windows build with all three installed optional modules disabled
+passed 19 core tests. The companion's 43 reader tests also passed. See the
+[milestone record](doc/local/playerbots/PLAYERBOTS_QUEST_MILESTONE.md).
 
 The experimental gear model covers implemented specs at levels 10–39. Optional
 gear/roll gates default off. Full dungeon clears, broad class/item coverage,
 detailed positioning and Linux realm runtime remain unverified. See the
 [roadmap](doc/local/playerbots/PLAYERBOTS_PORT_ROADMAP.md) and module provenance
 for current limits and evidence. AHBot implementation is unchanged by this batch.
-This milestone is committed locally; matching revisions become available to
-other users when both repositories are pushed.
+Optional copied-state observer hooks and bounded passive engine history are
+included. The exporter/query application belongs to the separate context project
+and is not shipped by these two repositories. It is not required to run bots;
+history collection defaults off and is not proof of spell landing or completion.
 The earlier accepted [infrastructure milestone](doc/local/playerbots/PLAYERBOTS_INFRASTRUCTURE_MILESTONE.md)
 retains its historical revisions and client lifecycle evidence.
 
 | Module | Repository | Commit |
 | --- | --- | --- |
-| Playerbots | [iotadev/cata-playerbots](https://github.com/iotadev/cata-playerbots) | `40f5f7d8229abe77eecc0d7f12ef938601a680c6` |
+| Playerbots | [iotadev/cata-playerbots](https://github.com/iotadev/cata-playerbots) | `4f7f79d6fa8aef523ab8bf93360015df2fe238ca` |
 | AHBot | [iotadev/cata-ahbot](https://github.com/iotadev/cata-ahbot) | `ac2064e91b02af6b345b492a3f3453614b0087ab` |
 
 Clone each repository into the shown `modules/` directory and check out its

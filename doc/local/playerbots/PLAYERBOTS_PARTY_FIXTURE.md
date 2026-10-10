@@ -1,6 +1,17 @@
 # Repeatable level-20 party fixture
 
+After the hyperlink compatibility build is qualified, quest operands for accept,
+share and drop can be native shift-click quest links as well as numeric IDs;
+reward can take a quest link and an item link. This changes neither permissions
+nor eligibility. Item-link affixes/enchantments are not promised reward contents.
+The optional abandonment warning and separate gate still apply to linked drop.
+
 This is the shared-state operational fixture, not a high-level spell/proc suite.
+Once qualified, `accept *` can replace per-ID accepts at the human's selected
+nearby giver. It copies at most 25 currently offered native menu entries, then
+revalidates for each accept. Native eligibility/capacity and callbacks can produce
+partial results; no rollback or automatic retry occurs. It does not discover NPCs,
+rescan quest chains, turn in quests or force progress.
 Run only against a copied, cleanly stopped disposable DB. Never modify a live
 installation or the source seed. Preserve a stopped, provisioned baseline for
 subsequent runs; use the harness's verified roster replay instead of rebuilding
@@ -84,6 +95,29 @@ every feature in this session. Missing prerequisites or no useful encounter
 means deferred observation. The [candidate review](PLAYERBOTS_CANDIDATE_REVIEW.md)
 records the source boundaries already checked offline.
 
+## Optional context comparison
+
+When the optional context companion has been qualified on this gameplay branch,
+use its read-only CLI/API alongside this fixture. Configure the five fixture
+characters, check capture boot/generation and per-entity age, and compare health,
+combat, map/instance, controller/follow and selected-target state with the client.
+Keep the normal roster and durable enemies; instrumentation does not make an
+invalid fixture useful. Sampling skew, stale data and missing fields are explicit
+limits. Last executed action/queue count cannot prove a landed effect. The
+exporter is now linked into this gameplay checkout and its hooks are applied;
+Windows/Linux builds passed 390 native tests; party/client qualification remains
+pending. Add -ContextCapture to the
+normal reused interactive module fixture to capture all five identities at 1 Hz.
+Add `-ContextDiagnostics` when native phase compatibility, selected-unit and
+actual attack-victim geometry are needed. The observer reporter now checkpoints
+bounded query/entity gap episodes on its own elapsed clock. It does not classify
+an idle Warrior's rejection reason or treat a selected target as its victim.
+If Docker owns the standard ports, the ContextCapture fixture accepts explicit
+`-ContextAuthPort`, `-ContextWorldPort`, and `-ContextInstancePort`; these change
+only the copied realm and require matching temporary client realm settings.
+It stays disabled in other harness modes. Keep existing logs and manual observations. The companion
+ROADMAP/VALIDATION/contract in `CATA/cata-context-api/` own API-specific acceptance.
+
 ## Party and preparation
 
 | Character | Role | Native specialization | Equipment baseline |
@@ -138,6 +172,114 @@ state/role fixture into an artificial armor test.
 
 ## Fixed enemies and placement
 
+### Optional ordinary quest-share observation
+
+The reused interactive recovery/mixed-party recipe can add `-QuestFixture
+-ModuleConfig` to enable the quest gates only in the copy. It requires
+`-CheckFullParty -ReuseFullPartyFixture -MixedParty -Interactive -RecoveryLoot`.
+Normal replays explicitly disable all quest gates, even if the seed enabled them.
+The separate abandonment gate is explicitly disabled as well. Even -QuestFixture
+leaves it off unless -QuestAbandon is also supplied; ordinary quest play does not
+require this destructive-operation opt-in.
+This option prepares ordinary gameplay, not a forced quest grant or scripted
+acceptance assertion. See the current handoff for build qualification; quest
+gameplay is still unqualified. A future source change requires its own validation.
+It captures bounded saved quest states before admission and after clean native
+world shutdown in ignored `quest-state-result.json`. Compare completion replies
+with those before/after rows; saved presence is not a relogin observation.
+
+After the shared-quest build is qualified, enable
+`Playerbots.Quest.AcceptShared.Enabled = 1` only in the copied realm's module
+configuration. During the next normal party session, while alive, idle and
+together, share one ordinary eligible quest from the human's native quest log.
+Prefer a quest taken normally from a nearby level-appropriate quest giver; do
+not invent a quest ID or force database/log edits to make the observation pass.
+The human must be the attached controller, and native race/class/level/log-capacity
+checks still apply to each bot. Expect an explicit accepted/already-present/not-
+accepted reply and matching `PB-QUEST` evidence; verify the actual native quest
+log and saved state before claiming persistence. This gate does not handle
+turn-in dialogs, rewards or NPC discovery. The new party-pushed confirmation
+route can join the same replay after its build is qualified, if a real offered
+quest uses that native flag. Eligibility remains native; no suitable quest means
+deferred coverage, not a forced quest grant.
+Missing a suitable quest is deferred coverage, not a reason for another tiny test.
+
+The separate explicit NPC path requires `Playerbots.Quest.AcceptNpc.Enabled = 1`
+in the copy. Select a nearby creature quest giver and whisper one bot
+`accept <numeric quest ID>` for an actual offered quest. Party chat uses the
+existing authorized party scope. Keep the human and bots within native interaction
+range; ranged followers may need to be brought closer. Wait for completion rather
+than treating the queued reply as acceptance. This command does not walk to the
+giver or automatically acquire quests. Explicit `accept *` snapshots up to 25
+native offered quests and revalidates each; native quest links also work. Observe shared and NPC
+acceptance together when convenient; neither gate enables quest rewards or travel.
+
+The new separate `Playerbots.Quest.Reward.Enabled` gate enables an explicit
+`reward <quest ID> <item ID>` command once its current build is qualified. Select
+the involved nearby giver for an actually completed, ordinary non-repeatable
+quest. Item zero is valid only when there are no choice items. This is an item ID,
+not a UI position or automatic recommendation; duplicate matching choices reject.
+Repeatable/daily and turn-in dialogs are excluded. Wait for native confirmation;
+rewarded state alone does not prove the chosen inventory contents or persistence.
+For completed quests with zero or one choice item, explicit `reward *` attempts
+eligible ordinary quests at that selected giver, up to 25 snapshotted active IDs.
+It skips quests with several choices, revalidates every attempt and reports partial
+native completions. It changes inventory/quest state; it is not a read-only survey.
+No forced completion, automatic retries or rollback are included. Observe it only
+when you intend those turn-ins; keep manual item selection for multiple choices.
+The active-quest report is supplemented by ignored
+`quest-reward-state-result.json`: bounded before/after rewarded history, native
+inventory-mapped totals (including bank), level/XP/money after clean shutdown.
+Compare the requested item and confirmed quest with those rows. Normal gameplay
+can also change totals/resources; the report is not an automatic grant assertion
+and does not capture item properties or prove relogin behavior.
+
+The independent `Playerbots.Quest.Inspection.Enabled` gate enables `quests` by
+whisper or party chat once its build is qualified. It needs no selected giver
+and changes nothing. Use it to see accepted quest IDs, native completion status,
+carried item counts, kill/GO counters and reward item IDs before requesting a
+reward. Bank contents and other objective types are not detailed; incomplete
+progress fields do not replace the native status. This can join the same replay.
+
+`quests completed` (or `quests co`) limits details to native complete entries;
+`quests incompleted` (or `quests in`) shows the rest, including labelled failures.
+`quests summary` returns counts only. Bare `quests` and `quests all` retain all
+details. Counts always cover the full active log. No travel filter is supported.
+
+The separate `Playerbots.Quest.Share.Enabled` gate allows a whisper to one bot:
+`share <quest ID>`. The bot must own a native shareable active quest and be in
+the human controller's party. No selected NPC is needed. Native recipient
+eligibility/busy/auto-accept rules remain; submission does not prove acceptance.
+No party-chat share fan-out, automatic sharing or new bot-to-bot consent is enabled.
+
+QuestFixture also enables Playerbots.Quest.SyncLootWithPlayer.Enabled in the copy.
+When a naturally encountered corpse contains a quest-class item the human still
+needs natively, expect PB-QUEST-LOOT deferral only for competitive drops. A
+matching native slot with freeforall=true is per-player and is exempt; the
+group's Free For All loot setting is not that item flag.
+Native loot ownership remains unchanged: deferral does not reserve the item or
+guarantee human pickup. After the human's need is satisfied, later eligible bot
+pickups are no longer deferred. Observe this in the same real-quest replay when
+convenient; do not force a drop or treat missing coverage as a failed fixture.
+
+Optional `Playerbots.Quest.Abandon.Enabled` allows a whisper to one bot:
+`drop <active quest ID>`. Native abandonment can remove quest-provided items and
+reset timed/PvP quest state. There is no bulk command or rewarded-history reset.
+Do not drop a wanted quest to close test coverage. Any later check must be against
+a disposable copied realm and an explicitly unwanted quest, and is separate
+from the normal acquisition/reward milestone.
+
+The harness stages recovery, role, gear and context-capture party checks at
+Tranquillien on map 530, including the outdoor start of a dungeon check. The
+native destination and saved offline arrival are checked before bot admission;
+wait for FULL PARTY READY before logging in. This prevents a failed placement
+command from silently leaving the roster at its starting-zone homebind. The
+level-one homebind is only an offline normalization step, not the playtest
+destination. Do not use starting-zone enemies to qualify combat, healing or
+recovery: they die too quickly to exercise those behaviors. Confirm the native
+party and shared map/instance before the first pull; a functioning idle capture
+does not establish party combat coverage.
+
 The copied Cata world DB contains these level-21 enemies with HealthModifier 4:
 
 | Entry | Enemy | Map | Verified spawn coordinates |
@@ -147,8 +289,11 @@ The copied Cata world DB contains these level-21 enemies with HealthModifier 4:
 
 Use the Luzran location as the first durable pull and Knucklerot only if needed.
 For the outdoor fixture, place the human with native `.go creature id 16245`
-in GM mode, move to safe ground, and use `.summon <name>` only when the bots are
-already on the same map. Invite them and restore ordinary combat mode.
+in GM mode, move to safe ground, and use native `.group summon Test` after forming
+the party, only when bots are already on the same map. This path exists in core
+but is not yet live-qualified with the bot fixture; check actual member arrival,
+not just summon messages. Individual `.summon <name>` remains a fallback. Restore
+ordinary combat mode before engaging.
 Cross-map summons lack the required bot transfer support. Keep everyone within the
 existing 35-yard leash; do not send the player searching for starter-zone mobs.
 The DB establishes level/durability/location, not a tested safe pull path. Observe

@@ -685,6 +685,9 @@ class TC_GAME_API PlayerScript : public ScriptObject
         // Called when a player logs out.
         virtual void OnLogout(Player* /*player*/) { }
 
+        // Read-only observers run in the owning map's session update context.
+        virtual void OnUpdate(Player* /*player*/, uint32 /*diff*/) { }
+
         // Called when a player is created.
         virtual void OnCreate(Player* /*player*/) { }
 
@@ -1028,6 +1031,7 @@ class TC_GAME_API ScriptMgr
         void OnPlayerSpellCast(Player* player, Spell* spell, bool skipCheck);
         void OnPlayerLogin(Player* player, bool firstLogin);
         void OnPlayerLogout(Player* player);
+        void OnPlayerUpdate(Player* player, uint32 diff);
         void OnPlayerCreate(Player* player);
         void OnPlayerDelete(ObjectGuid guid, uint32 accountId);
         void OnPlayerFailedDelete(ObjectGuid guid, uint32 accountId);

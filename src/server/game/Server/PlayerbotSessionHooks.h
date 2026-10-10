@@ -7,6 +7,7 @@
 
 #include "Define.h"
 #include "PlayerbotStrategyBinding.h"
+#include "PlayerbotContextState.h"
 #include <memory>
 #include <string>
 #include <vector>
@@ -41,6 +42,7 @@ public:
     virtual void RequestServerOriginInstanceJoin(uint32 mapId) = 0;
     virtual bool RequestPlayerbotRange(uint32 requesterGuidLow, std::string const& param) = 0;
     virtual bool RequestPlayerbotEquip(uint32) { return false; }
+    virtual bool RequestPlayerbotQuestCommand(uint32, uint32, uint64, uint32, uint32, uint32, uint32) { return false; }
     virtual bool RequestPlayerbotStrategy(uint32 requesterGuidLow, std::string const& command,
         std::string const& token, std::string const& target, uint64 batch, PlayerbotStrategyBinding const& binding) = 0;
     virtual bool RequestPlayerbotRebuff(uint32 requesterGuidLow) = 0;
@@ -51,6 +53,8 @@ public:
     virtual bool IsAttacking() const = 0;
     virtual uint32 GetStrategyRoleMask() const = 0;
     virtual std::shared_ptr<PlayerbotStrategySnapshot const> GetStrategySnapshot() const = 0;
+    // Optional diagnostics. Caller must own the player's map update context.
+    virtual PlayerbotContextState GetContextStateForMap() const { return {}; }
     virtual void UpdateMap(uint32 diff) = 0;
     virtual void UpdateWorld() = 0;
 };

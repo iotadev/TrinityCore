@@ -1,6 +1,6 @@
 # Cataclysm Playerbots roadmap
 
-Updated 2026-10-07. The goal is AzerothCore Playerbots and MultiBot functionality
+Updated 2026-10-09. The goal is AzerothCore Playerbots and MultiBot functionality
 on native TrinityCore Cataclysm 4.3.4. Reuse upstream behavior and preserve Cata's
 session, map, inventory, loot and database ownership.
 
@@ -10,68 +10,129 @@ and automatic group formation follow on separate tracks.
 
 ## Current capabilities
 
-The published coordination/recovery milestone is module `9f99b27`, paired with
-core `eee1755104`. It includes the established module/session infrastructure,
-bounded character creation, managed rosters and MultiBot lifecycle control.
-Combat, noncombat and dead-state engines support starter Warrior/Mage/Priest
-behavior, shared targeting and positioning, recovery, buffs, interrupts and
-native corpse opening. Optional behavior requires its configuration gates.
+The earlier published core `eee1755104` / module `9f99b27` provided optional modules, native
+bot lifecycle, managed rosters, bounded character creation, MultiBot lifecycle/
+control and shared combat/noncombat/dead engines for Warrior/Mage/Priest.
 
-Outdoor and Ragefire checks observed party engagement, damage/healing, tank
-aggro recovery, eating/drinking, owner-death hold and following after recovery.
-Dedicated instance entry works with the prepared fixture. Full dungeon clears,
-broad class/spec parity and detailed positioning remain unqualified.
+The October 9 checkpoint includes the earlier gear/loot milestone (historically
+core `bb8c37e2b4` / module `40f5f7d`). It adds main-tank selection, no-steal protection,
+active DPS reassessment, copied item/stat readers, eight-spec starter scoring at
+levels 10–39, `gear?`, one-slot `gear apply` and guarded native need/greed/pass.
+The same checkpoint adds qualified actual-loot affix comparison, read-only
+context integration and explicit human-led quest controls.
 
-The local gear/loot milestone adds main-tank selection and no-steal protection, active
-auto-assisted DPS reassessment, item/stat readers, starter gear scoring,
-authorized `gear?` inspection and explicit `gear apply`. One empty-waist change
-on Testone passed native completion and saved inventory preservation. Scoring
-covers eight implemented specs at levels 10–39 and remains a limited heuristic.
+Quest controls now include native incoming shares/party confirmations, selected-
+giver `accept <quest>` / bounded `accept *`, `quests` inspection, explicit
+`reward <quest> <item>`, one-bot outgoing `share <quest>` and separately opted-in
+active `drop <quest>`. Native quest/item links and numeric operands are supported.
+Explicit `reward *` batches ordinary completed zero/single-choice quests at the
+selected giver, using at most 25 active IDs with fresh checks per quest. Multiple
+choices remain manual; native handlers own reward admission and grant.
+Read-only `quests` also supports donor completed/co and incompleted/in filters,
+all details and summary-only output; travel-manager details remain unported.
+All gates default off. Native admission, inventory and script ownership remain;
+there is no forced completion, direct AddQuest/RewardQuest fallback or removal of
+rewarded history. The confirmation handler's empty-sharer lookup was repaired
+without removing its native checks, including when modules are disabled.
 
-Shared item-usage categories, pure roll-choice rules and non-affixed unowned
-template comparison are implemented locally. They are dependencies for loot
-voting. Optional native need/greed/pass is now connected in local source and
-passed its Windows build and a controlled native need/greed/pass/award check.
-Linux source validation passed; broader runtime qualification remains ahead.
-Its gate defaults off. Automatic equipment management and
-disenchant classification remain ahead. Unknown/unsupported items pass.
+The map-owned reward-choice policy preserves donor usage precedence and native
+slot identities; unknown inputs stay unresolved. It does not authorize a grant.
+Accept-all uses at most 25 copied native offers with per-candidate revalidation
+and partial outcomes, not rollback or automatic retries.
+
+An independent default-off master-loot priority defers only quest-class corpse
+items while the human controller's native quest need remains. It skips bot pickup,
+not native ownership or recipient eligibility; broader donor item classification,
+bag/container behavior and master-progress copying are not ported by this slice.
+
+Read inspection is not an external API/MultiBot quest UI port. NPC discovery,
+quest travel, chain rescanning, automatic sharing/multiple-choice reward selection, master-progress
+synchronization, professions/vendor/token/disenchant classification, autonomous
+populations and broader class/spec/pet coverage remain separate.
 
 ## Current validation
 
 | Scope | Verified result | Remaining limit |
 | --- | --- | --- |
-| Current local Windows source | worldserver/tests-common built; 384/384 tests passed; controlled native decisions and saved award observed | Broader runtime coverage and full dungeon readiness remain pending |
-| Current local Linux source | worldserver/tests-common built; 384/384 tests passed | Linux realm runtime remains untested |
-| Published coordination/recovery milestone | Windows/Linux 324 tests; observed party recovery and combat | Earlier baseline, not the current local source |
-| Optional modules disabled | Current Windows worldserver/tests-common built; 19 tests passed | No Linux module-off runtime claim |
-| Native equip replay | One empty-slot move saved; owned item identities/counts/captured properties preserved | Relogin, occupied-slot displacement and broader gear coverage remain open |
+| Current local Windows source | Full-script worldserver/tests-common passed 431/431; includes per-player quest-loot exemption and current observer additions | New exemption, reward batches and broader quest flows remain unobserved |
+| Complete current Linux source | Full-script worldserver/tests-common passed 431/431 after refreshing core, Playerbots and canonical observer sources | Linux realm runtime remains untested |
+| Optional modules disabled | Fresh Windows worldserver/tests-common passed 19/19 with all three installed modules off after current core corrections | No Linux module-off runtime claim |
+| Existing party operation | Outdoor/Ragefire engagement, support, recovery, owner-death hold/resume and dedicated instance entry observed | No full clear, broad parity or quantitative role/positioning guarantee |
+| Native equip | One empty-slot change saved; owned item identities/properties preserved | Occupied-slot displacement and relogin remain open |
+| Native loot | Controlled need/greed/pass and saved award observed | Natural-affix decisions/awards and broader item coverage remain open |
+| Context tooling | Five-identity Ragefire capture; optional phase diagnostics used in quest replay; companion history publication/archive check and 43 reader tests passed | Earlier capture had 434 stale online polls; freshness cause, native sampling cost and asynchronous outcomes remain unqualified |
 
-Linux server runtime remains untested. The Cata test realm and Linux compiler
-container were stopped after their completed checks. Intermediate build counts,
-donor pins and dated evidence belong in module
-[PORTING.md](../../../modules/mod-playerbots/PORTING.md) and the existing
-[milestone evidence](PLAYERBOTS_STATE_MILESTONE.md).
+After the initial inverted native sharing guard was repaired, the corrected
+October 8 replay confirmed four native accepts, objective progression and
+Testone's explicit reward 22979. Saved rewarded history and mapped inventory
+confirm that one turn-in; other bots remain complete/unrewarded. Relogin and
+batch/link/party-push behavior remain open. Builds are finished, and the realm and
+Linux compiler stopped. The shared-loot exemption has not been live-deployed.
+Recheck listeners before another
+realm and preserve unrelated workloads. The current builds are source evidence,
+not a replacement for gameplay. Dated donor pins, intermediate build counts and
+runtime provenance remain in module [PORTING.md](../../../modules/mod-playerbots/PORTING.md),
+[milestone evidence](PLAYERBOTS_STATE_MILESTONE.md) and the existing history.
 
 ## Next two batches
 
-1. Continue the human-led dungeon toward a clear with the existing prepared party.
-   The gear/loot milestone now has Windows/Linux 384-test builds, a current
-   Windows module-off 19-test build, controlled need/greed/pass/saved-award evidence
-   and outgoing review. It is committed locally, awaiting publication; do not
-   repeat its isolated tests. Address actual tank/healer/recovery failures through
-   their owning donor behavior.
-2. Extend the connected loot decisions to natural random-affix drops using the
-   existing collector and verified native roll metadata. Preserve actual Cata
-   property/suffix/factor semantics and unsupported-effect distinctions. Quest/
-   master synchronization, profession/vendor, token and disenchant decisions
-   remain later item-usage groups. Choose subsequent ports to support the party's
-   observed needs, without reopening infrastructure or making every missing
-   category a dungeon prerequisite.
+1. Improve the next same-map outdoor setup using native `.group summon Test`,
+   which already exists; verify arrival without adding another summon command.
+   Dedicated dungeon entry remains the cross-map/instance path. Continue donor
+   behavior porting and a useful human-led dungeon toward a clear. Add optional
+   deferred coverage only when convenient, with no forced completions, starting-zone
+   combat, mandatory wipes or tiny per-command tests.
+2. Port connected donor NPC/quest interaction or observed party/inventory needs.
+   The bundled real-quest check is complete; retain unobserved batch/link/party-push/
+   relogin/affix limits rather than reopening lifecycle infrastructure. Broader
+   professions/economy, class coverage and autonomy remain separate tracks.
 
-Useful optional observations can join that replay: occupied-slot equip and saved
-relogin, command/state transitions, target loss and MultiBot ACK/STATE/restore.
-Their absence is a documented limit, not a reason to force separate tiny tests.
-Multi-tank checks require an actual two-tank fixture.
+Development can continue offline while the replay is pending. Missing suitable
+quests/drops is deferred coverage, not a forced fixture. Test counts are validation
+evidence; connected behavior and preserved native ownership define milestones.
+
+## Companion track: realm context API and future MCP
+
+The separate `cata-context-api` project provides structured development context
+while Playerbots remains deterministic and server-owned. Its canonical roadmap,
+qualification record and snapshot contract live in the workspace-relative
+`CATA/cata-context-api/` directory. The related chat is
+"Design agent-wow Cata observer". Keep implementation and detailed API planning
+there; this roadmap owns the gameplay integration checkpoint.
+
+The experimental read-only slice is integrated: optional C++ `mod-context-api`,
+map-session sampling into copied JSON snapshots and a Python query application
+with CLI/loopback access. It implements `context.get_capabilities`, `game.get_party`
+and `playerbots.get_bot_state`. The canonical module is linked rather than forked;
+core/Playerbots hooks retain optional module gates. Current full gameplay build
+qualification is listed above, not inferred from the companion's older build.
+
+A joint five-identity Ragefire replay observed combat/offline/stopped snapshots.
+The bounded reader/party monitor passed 23 checks. Freshness gaps remain explicit:
+the original capture lacks a gap timeline and does not measure native sampling
+cost. Further useful replays may compare client/log evidence and the improved
+monitor together; no isolated telemetry test is required to continue gameplay.
+MCP registration, controls and independent client observation remain later stages.
+
+No observer expansion blocks the next gameplay port. First use the prepared
+freshness reporter in a useful party replay. Add native phase, attack-victim/
+facing facts or bounded rejection history only for a concrete preflight or
+diagnostic need, through the companion's versioned copied-data contract.
+
+Use fresh, qualified focused queries for fixture preflight and failure diagnosis:
+identity/generation, health/resources, combat, map/instance, controller/follow,
+strategies, selected target, last executed action and queue count. Check boot ID,
+per-entity freshness and sample skew before using a snapshot. Configured scope is
+not guaranteed complete party membership; selected target is not necessarily the
+attack victim; last action and queue count do not prove a currently executing
+action or landed spell. Missing/stale/unsupported context remains explicit.
+
+Later history should correlate copied bot intent/admission/submission with native
+outcomes using entity/session identities and timestamps. Independent client
+observation can follow when it answers a specific unresolved question. MCP stays
+a thin interface to the same semantic queries; bounded controls and repeatable
+scenarios follow their own completion/cleanup qualification. Query availability
+does not authorize writes. External readers never access live game pointers.
 
 ## Working rules
 

@@ -37,12 +37,26 @@ function Invoke-LocalTool([string]$Name, [string[]]$ToolArguments) {
     finally { $process.Dispose() }
 }
 
-if ($Configure) {
-    Invoke-LocalTool 'cmake' @('-S', $repo, '-B', $build)
+function Open-LocalBuildLock([string]$Directory) {
+    # One cooperating wrapper per output tree. OS ownership, not a stale PID file;
+    # other build directories remain independent. Raw cmake calls are not fenced.
+    try {
+        return [IO.File]::Open((Join-Path $Directory '.local-build.lock'),
+            [IO.FileMode]::OpenOrCreate, [IO.FileAccess]::ReadWrite, [IO.FileShare]::None)
+    }
+    catch [IO.IOException] {
+        throw "Cannot acquire exclusive build lock in $Directory. Another local build may be running; wait before retrying."
+    }
 }
 
-Invoke-LocalTool 'cmake' (@('--build', $build, '--config', $Configuration, '--target') + $Targets + @('--', '/m:1', '/p:UseMultiToolTask=false', '/p:MultiProcessorCompilation=false'))
-
-if ($RunTests) {
-    Invoke-LocalTool 'ctest' @('--test-dir', $build, '-C', $Configuration, '--output-on-failure')
+$buildLock = Open-LocalBuildLock $build
+try {
+    if ($Configure) {
+        Invoke-LocalTool 'cmake' @('-S', $repo, '-B', $build)
+    }
+    Invoke-LocalTool 'cmake' (@('--build', $build, '--config', $Configuration, '--target') + $Targets + @('--', '/m:1', '/p:UseMultiToolTask=false', '/p:MultiProcessorCompilation=false'))
+    if ($RunTests) {
+        Invoke-LocalTool 'ctest' @('--test-dir', $build, '-C', $Configuration, '--output-on-failure')
+    }
 }
+finally { $buildLock.Dispose() }

@@ -1,6 +1,6 @@
 # Milestone publication checklist
 
-Updated 2026-09-29. Initial coordinated snapshots already exist. Use this
+Updated 2026-10-09. Initial coordinated snapshots already exist. Use this
 checklist when publishing subsequent core/module work; repository boundaries
 are documented in [the repository plan](../playerbots/PLAYERBOTS_REPOSITORY_PLAN.md).
 
@@ -12,6 +12,8 @@ are documented in [the repository plan](../playerbots/PLAYERBOTS_REPOSITORY_PLAN
 3. Verify the destination and configured author/committer identity. The core
    publication destination is `iotadev/TrinityCore`, not its upstream project.
    Never resolve a mismatch by an unreviewed force push.
+   Verify both commit identity and the authenticated GitHub account; this project
+   publishes as iotadev. An author name alone does not identify the pushing account.
 4. Review actual outgoing files and new history for personal paths/identities,
    credentials, generated data, missing source attribution and unsupported
    readiness claims. Pattern scans complement review.
@@ -19,6 +21,10 @@ are documented in [the repository plan](../playerbots/PLAYERBOTS_REPOSITORY_PLAN
    matching build and affected tests. Recheck disabled-module boundaries when
    changed. Use one representative client session for integrated gameplay work;
    do not repeat it for documentation edits or every individual spell.
+   Refresh the complete Linux snapshot, including the canonical observer module
+   when installed, rather than treating an older targeted patch build as current.
+   Serialize writers to each build output directory; the local helper's lock
+   fences cooperating wrappers, not raw CMake or already-running older helpers.
 6. Commit the module and record that exact revision in the core README. Check
    documentation links, configuration names/defaults and the current roadmap.
    Keep dated validation notes clearly historical.
