@@ -31,7 +31,7 @@ compatible. See the [module integration guide](modules/README.md) for the build
 boundary. The modules are independently selectable with
 `-DMODULE_MOD_PLAYERBOTS=ON|OFF` and `-DMODULE_MOD_AHBOT=ON|OFF`.
 
-For the October 2026 human-led party/quest milestone, use the matching module
+For the current October 2026 snapshot, use the matching module
 revisions below. It combines the earlier gear/loot work with native quest sharing,
 acceptance, inspection and explicit rewards. Four bots accepted and completed
 one real quest; one bot's explicit turn-in and chosen reward were saved. This
@@ -39,10 +39,18 @@ does not establish automatic quest travel or turn-in. Native sharing availabilit
 and confirmation identity repairs retain core eligibility checks, including
 when Playerbots is disabled.
 
-Windows and Linux modules-enabled worldserver/tests-common passed 431 tests
+The October 9 milestone's Windows and Linux modules-enabled worldserver/tests-common passed 431 tests
 each. A fresh Windows build with all three installed optional modules disabled
 passed 19 core tests. The companion's 43 reader tests also passed. See the
 [milestone record](doc/local/playerbots/PLAYERBOTS_QUEST_MILESTONE.md).
+
+The October 11 follow-up adds explicit `repair` at a selected nearby NPC, using
+the bot's funds through native Cata repair-all. The feature defaults off. Windows
+worldserver/tests-common built and passed 433/433 tests; Linux and client repair
+validation remain pending. The earlier Linux and modules-disabled results above
+apply to the October 9 source. The updated roadmap prioritizes maintenance and
+a human-led Ragefire clear; the [MultiBot feature map](doc/local/playerbots/PLAYERBOTS_MULTIBOT_FEATURE_MAP.md)
+records server/UI integration gaps.
 
 The experimental gear model covers implemented specs at levels 10–39. Optional
 gear/roll gates default off. Full dungeon clears, broad class/item coverage,
@@ -58,7 +66,7 @@ retains its historical revisions and client lifecycle evidence.
 
 | Module | Repository | Commit |
 | --- | --- | --- |
-| Playerbots | [iotadev/cata-playerbots](https://github.com/iotadev/cata-playerbots) | `4f7f79d6fa8aef523ab8bf93360015df2fe238ca` |
+| Playerbots | [iotadev/cata-playerbots](https://github.com/iotadev/cata-playerbots) | `1e108ca6c2451afb528aae151532dcf8610af563` |
 | AHBot | [iotadev/cata-ahbot](https://github.com/iotadev/cata-ahbot) | `ac2064e91b02af6b345b492a3f3453614b0087ab` |
 
 Clone each repository into the shown `modules/` directory and check out its

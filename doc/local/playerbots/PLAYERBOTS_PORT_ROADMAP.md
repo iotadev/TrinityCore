@@ -1,6 +1,6 @@
 # Cataclysm Playerbots roadmap
 
-Updated 2026-10-09. The goal is AzerothCore Playerbots and MultiBot functionality
+Updated 2026-10-11. The goal is AzerothCore Playerbots and MultiBot functionality
 on native TrinityCore Cataclysm 4.3.4. Reuse upstream behavior and preserve Cata's
 session, map, inventory, loot and database ownership.
 
@@ -52,9 +52,15 @@ populations and broader class/spec/pet coverage remain separate.
 
 ## Current validation
 
+The October 11 maintenance follow-up implements explicit `repair`
+at a selected nearby NPC through native paid repair-all. Its separate gate is
+off by default. Windows worldserver/tests-common passed 433/433. Details are in
+module PORTING.md; Linux and client
+qualification remain pending. The table below describes the published milestone.
+
 | Scope | Verified result | Remaining limit |
 | --- | --- | --- |
-| Current local Windows source | Full-script worldserver/tests-common passed 431/431; includes per-player quest-loot exemption and current observer additions | New exemption, reward batches and broader quest flows remain unobserved |
+| Published October 9 Windows source | Full-script worldserver/tests-common passed 431/431; includes per-player quest-loot exemption and observer additions | New exemption, reward batches and broader quest flows remain unobserved |
 | Complete current Linux source | Full-script worldserver/tests-common passed 431/431 after refreshing core, Playerbots and canonical observer sources | Linux realm runtime remains untested |
 | Optional modules disabled | Fresh Windows worldserver/tests-common passed 19/19 with all three installed modules off after current core corrections | No Linux module-off runtime claim |
 | Existing party operation | Outdoor/Ragefire engagement, support, recovery, owner-death hold/resume and dedicated instance entry observed | No full clear, broad parity or quantitative role/positioning guarantee |
@@ -76,18 +82,19 @@ runtime provenance remain in module [PORTING.md](../../../modules/mod-playerbots
 
 ## Next two batches
 
-1. Improve the next same-map outdoor setup using native `.group summon Test`,
-   which already exists; verify arrival without adding another summon command.
-   Dedicated dungeon entry remains the cross-map/instance path. Continue donor
-   behavior porting and a useful human-led dungeon toward a clear. Add optional
-   deferred coverage only when convenient, with no forced completions, starting-zone
-   combat, mandatory wipes or tiny per-command tests.
-2. Port connected donor NPC/quest interaction or observed party/inventory needs.
-   The bundled real-quest check is complete; retain unobserved batch/link/party-push/
-   relogin/affix limits rather than reopening lifecycle infrastructure. Broader
-   professions/economy, class coverage and autonomy remain separate tracks.
+1. Port human-directed maintenance at a selected nearby NPC, starting with native
+   repair using bot funds. Selling needs safe vendor/profession/quest-item usage;
+   buying needs budget and vendor-stock policy. Unknown usage remains protected
+   from sale. Current donor audit and repair adaptation are in module PORTING.md.
+2. Aim for one human-led Ragefire clear covering combat, recovery, loot and
+   available maintenance together. Existing group summon improves same-map staging;
+   dedicated instance entry remains required. Fix demonstrated blockers in batches.
+   Use the [MultiBot feature map](PLAYERBOTS_MULTIBOT_FEATURE_MAP.md) for UI dependencies.
 
-Development can continue offline while the replay is pending. Missing suitable
+The October 9 milestone is published as core `1e17cbdc96` / module `4f7f79d`.
+Maintenance is a follow-up. Broader economy, classes and autonomy stay separate.
+
+Development can continue offline until the next useful replay. Missing suitable
 quests/drops is deferred coverage, not a forced fixture. Test counts are validation
 evidence; connected behavior and preserved native ownership define milestones.
 
@@ -115,9 +122,9 @@ monitor together; no isolated telemetry test is required to continue gameplay.
 MCP registration, controls and independent client observation remain later stages.
 
 No observer expansion blocks the next gameplay port. First use the prepared
-freshness reporter in a useful party replay. Add native phase, attack-victim/
-facing facts or bounded rejection history only for a concrete preflight or
-diagnostic need, through the companion's versioned copied-data contract.
+freshness reporter in a useful party replay. Optional phase, attack-victim/facing
+facts and bounded action history already exist. Use those for concrete diagnoses;
+extend the versioned copied-data contract when an observed gap warrants it.
 
 Use fresh, qualified focused queries for fixture preflight and failure diagnosis:
 identity/generation, health/resources, combat, map/instance, controller/follow,
@@ -127,8 +134,9 @@ not guaranteed complete party membership; selected target is not necessarily the
 attack victim; last action and queue count do not prove a currently executing
 action or landed spell. Missing/stale/unsupported context remains explicit.
 
-Later history should correlate copied bot intent/admission/submission with native
-outcomes using entity/session identities and timestamps. Independent client
+Existing history records engine admission and action returns. Correlation with
+native asynchronous outcomes remains future work, using session identities and
+timestamps. Independent client
 observation can follow when it answers a specific unresolved question. MCP stays
 a thin interface to the same semantic queries; bounded controls and repeatable
 scenarios follow their own completion/cleanup qualification. Query availability

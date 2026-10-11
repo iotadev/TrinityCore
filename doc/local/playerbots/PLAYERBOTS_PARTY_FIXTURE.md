@@ -1,6 +1,6 @@
 # Repeatable level-20 party fixture
 
-After the hyperlink compatibility build is qualified, quest operands for accept,
+Quest operands for accept,
 share and drop can be native shift-click quest links as well as numeric IDs;
 reward can take a quest link and an item link. This changes neither permissions
 nor eligibility. Item-link affixes/enchantments are not promised reward contents.
@@ -17,7 +17,23 @@ installation or the source seed. Preserve a stopped, provisioned baseline for
 subsequent runs; use the harness's verified roster replay instead of rebuilding
 characters for every spell.
 
-## Next replay: short version
+## Next bundled replay
+
+Aim for useful human-led Ragefire progress toward a clear with the provisioned
+level-20 party. Confirm group, phase, map/instance, arrival, gear and consumables
+before diagnosing behavior. Use native group summon for same-map outdoor staging
+and the dedicated instance-entry path. The real-quest replay is already complete;
+the recipes below remain available for convenient coverage rather than required repeats.
+
+The new maintenance follow-up can join normal play after build qualification:
+enable `Playerbots.Maintenance.Repair.Enabled` only in the disposable module
+config, select a nearby repair NPC and use `/w Testone repair` or `/p repair`.
+Ensure bots actually reached interaction distance and have their own funds.
+Ordinary dungeon wear is sufficient. Read reported equipped missing durability
+and copper spent; insufficient funds can produce partial repair. A queued reply
+is not completion. No repair playtest has been observed yet.
+
+## Existing fixture recipes
 
 For a read-only inventory check, use `-GearInspection -ModuleConfig -CheckFullParty
 -ReuseFullPartyFixture -MixedParty -Interactive` with the existing stopped seed.

@@ -278,6 +278,11 @@ bool WorldSession::RequestPlayerbotEquip(uint32 requesterGuidLow)
 {
     return IsServerOrigin() && _playerbotHooks && requesterGuidLow && _playerbotHooks->RequestPlayerbotEquip(requesterGuidLow);
 }
+bool WorldSession::RequestPlayerbotRepair(uint32 requesterGuidLow, uint64 npc, uint32 map, uint32 instance)
+{
+    return IsServerOrigin() && _playerbotHooks && requesterGuidLow && npc &&
+        _playerbotHooks->RequestPlayerbotRepair(requesterGuidLow, npc, map, instance);
+}
 bool WorldSession::RequestPlayerbotQuestCommand(uint32 requesterGuidLow, uint32 quest, uint64 giver, uint32 map, uint32 instance, uint32 operation, uint32 item)
 {
     // The module validates each operation; read-only inspection has no quest/giver.

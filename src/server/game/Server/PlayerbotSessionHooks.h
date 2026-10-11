@@ -43,6 +43,7 @@ public:
     virtual bool RequestPlayerbotRange(uint32 requesterGuidLow, std::string const& param) = 0;
     virtual bool RequestPlayerbotEquip(uint32) { return false; }
     virtual bool RequestPlayerbotQuestCommand(uint32, uint32, uint64, uint32, uint32, uint32, uint32) { return false; }
+    virtual bool RequestPlayerbotRepair(uint32, uint64, uint32, uint32) { return false; }
     virtual bool RequestPlayerbotStrategy(uint32 requesterGuidLow, std::string const& command,
         std::string const& token, std::string const& target, uint64 batch, PlayerbotStrategyBinding const& binding) = 0;
     virtual bool RequestPlayerbotRebuff(uint32 requesterGuidLow) = 0;

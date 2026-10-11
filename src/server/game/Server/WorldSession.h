@@ -526,6 +526,7 @@ class TC_GAME_API WorldSession
         bool RequestPlayerbotRange(uint32 requesterGuidLow, std::string const& param);
         bool RequestPlayerbotEquip(uint32 requesterGuidLow);
         bool RequestPlayerbotQuestCommand(uint32 requesterGuidLow, uint32 quest, uint64 giver, uint32 map, uint32 instance, uint32 operation, uint32 item);
+        bool RequestPlayerbotRepair(uint32 requesterGuidLow, uint64 npc, uint32 map, uint32 instance);
         bool RequestPlayerbotStrategy(uint32 requesterGuidLow, std::string const& command,
             std::string const& token = {}, std::string const& target = {}, uint64 batch = 0,
             PlayerbotStrategyBinding const& binding = {});

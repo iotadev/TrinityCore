@@ -1,6 +1,6 @@
 # Playerbots development handoff
 
-Updated 2026-10-09. Start here. The [roadmap](PLAYERBOTS_PORT_ROADMAP.md) owns
+Updated 2026-10-11. Start here. The [roadmap](PLAYERBOTS_PORT_ROADMAP.md) owns
 priorities; module [PORTING.md](../../../modules/mod-playerbots/PORTING.md) owns
 donor pins, adaptations and dated implementation/build evidence. The
 [party fixture](PLAYERBOTS_PARTY_FIXTURE.md) owns the test recipe.
@@ -12,10 +12,12 @@ Older chronological handoff detail is preserved in
 - Core checkout: `TrinityCore-publication-candidate`; independent module:
   `modules/mod-playerbots`. Both use `work/managed-roster`.
 - The October 9 release packages the earlier gear/loot work, quest controls and
-  optional observer hooks. The core README owns the matching module pin.
+  optional observer hooks. Published core: `1e17cbdc96`; module: `4f7f79d`.
+  The core README owns the matching module pin for the current publication.
+  The October 11 maintenance follow-up has separate qualification in PORTING.md.
   Previous publication was core `eee1755104` / module `9f99b27`; historical local
   gear/loot commits were `bb8c37e2b4` / `40f5f7d`.
-- Complete current Windows/Linux full-script worldserver/tests-common builds
+- Published October 9 Windows/Linux full-script worldserver/tests-common builds
   passed **431/431** each, including per-player quest loot and observer additions.
   Fresh Windows all-three-modules-off passed **19/19** after current core repairs.
   The companion's reader suite passed **43/43**. Dated intermediate qualification
@@ -36,11 +38,19 @@ Older chronological handoff detail is preserved in
 
 ## Connected capabilities
 
+The October 11 follow-up adds ordinary whisper/party `repair` at the human's
+selected nearby repair NPC, gated by `Playerbots.Maintenance.Repair.Enabled`.
+The separate adapter uses native paid repair-all on the world owner, with copied
+intent and fresh control/location checks. Client and Linux follow-up are pending;
+Windows full-script worldserver/tests-common passed 433/433. PORTING.md owns
+current build qualification. The October 9 evidence below applies
+to the published baseline, not automatically to this follow-up.
+
 Published infrastructure includes optional modules, native asynchronous bot
 sessions, managed rosters, bounded character creation, MultiBot lifecycle/control
 and shared combat/noncombat/dead engines for Warrior/Mage/Priest.
 
-Local source adds party tank/DPS/healer coordination, targeting and movement,
+The published milestone adds party tank/DPS/healer coordination, targeting and movement,
 recovery, buffs, interrupts and native corpse opening. The inventory chain has
 consumable stock, copied stat facts, starter scoring for eight specs at levels
 10–39, `gear?`, explicit one-slot `gear apply`, shared item usage and guarded
@@ -106,19 +116,19 @@ Normal chat/link compatibility is not a LANG_ADDON/MultiBot quest UI port.
 
 ## Next two batches
 
-1. Use the native `.group summon Test` path for the next same-map outdoor fixture
-   instead of four manual summons, checking actual arrival. It exists already and
-   has not been live-qualified with this bot party; do not invent another command.
-   Keep dedicated dungeon entry for cross-map/instance transfer. Continue donor
-   behavior ports and a useful human-led dungeon replay rather than tiny per-command
-   tests; observer/MCP expansion remains need-driven.
-2. Target connected donor NPC/quest interaction or observed tank/healer/inventory
-   needs. The bundled real-quest check is complete; unobserved batch/link/party-push/
-   relogin/affix cases are deferred coverage, not reasons to repeat it. Keep optional
-   diagnostics truthful and native ownership intact. Milestone publication uses
-   iotadev and the publication remotes, never the module's local-path origin.
+1. Complete selected-NPC maintenance, starting with explicit native repair using
+   personal bot funds. Current donor audit: `79bd428115c8f33b74b13de23b133d49c3f75c60`.
+   Selling needs vendor/profession/quest-item classification; buying needs budget,
+   stock and consumable policy. Protect unknown usage from sale. Keep adapters
+   outside the session class and record Cata differences in PORTING.md.
+2. Aim for one human-led Ragefire clear, combining combat, recovery, loot and
+   available maintenance. Use `.group summon Test` for same-map outdoor staging,
+   checking actual arrival, and dedicated entry for instances. Fix demonstrated
+   blockers together. The [MultiBot feature map](PLAYERBOTS_MULTIBOT_FEATURE_MAP.md)
+   tracks integration gaps. Deferred command cases can join ordinary play.
+   Observer expansion remains tied to concrete diagnoses.
 
-Development can continue offline while the replay is pending. Do not invent
+Development can continue offline until the next useful replay. Do not invent
 completed playtests, use queued replies as outcomes, or force additional telemetry
 checks merely to obtain a clean report.
 
@@ -172,11 +182,9 @@ not necessarily attack victim; active-engine last action is historical; queue
 count does not enumerate all native/control requests. Missing/stale data remains
 explicit. Do not start a second realm on another task's listeners.
 
-Observer development is not a gameplay dependency. Next use the improved
-freshness reporter in an ordinary party replay; its 23 reader checks passed
-again on October 8, without a realm. If a real diagnosis needs more context,
-prioritize native phase and attack-victim/facing facts, then bounded action
-admission/rejection history. The October 8 fixture already exported optional
+Observer development is not a gameplay dependency. Use existing freshness,
+phase, attack-victim/facing and bounded action-history queries when needed.
+The companion's current reader suite passed 43 checks. The October 8 fixture exported optional
 phase/engagement diagnostics and observed mutual peer-phase visibility. The
 companion qualified bounded action-history publication and logout/shutdown
 archive behavior in its separate headless fixture, with 43 reader tests. That
@@ -192,7 +200,7 @@ continue porting. Keep any schema/ownership changes in the companion project.
 
 | Local ignored evidence | Scope |
 | --- | --- |
-| `build-both/Testing/Temporary/LastTest.log` | Latest Windows 431-test pass, including observer additions |
+| `build-both/Testing/Temporary/LastTest.log` | Latest Windows 433-test maintenance follow-up pass, including observer additions |
 | `build/linux-release-20261009/LastTest.log` | Complete current Linux 431-test pass; compiler stopped |
 | `build-core-only/Testing/Temporary/LastTest.log` | Fresh Windows all-three-modules-off 19-test pass after current core repairs |
 | `build/playerbot-smoke-20261008-212331/` | Human quest acquisition and four inspections; failed share; clean shutdown |
