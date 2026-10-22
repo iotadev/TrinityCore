@@ -1,6 +1,6 @@
 # Playerbots development handoff
 
-Updated 2026-10-11. Start here. The [roadmap](PLAYERBOTS_PORT_ROADMAP.md) owns
+Updated 2026-10-21. Start here. The [roadmap](PLAYERBOTS_PORT_ROADMAP.md) owns
 priorities; module [PORTING.md](../../../modules/mod-playerbots/PORTING.md) owns
 donor pins, adaptations and dated implementation/build evidence. The
 [party fixture](PLAYERBOTS_PARTY_FIXTURE.md) owns the test recipe.
@@ -9,55 +9,100 @@ Older chronological handoff detail is preserved in
 
 ## Current state
 
-- Core checkout: `TrinityCore-publication-candidate`; independent module:
-  `modules/mod-playerbots`. Both use `work/managed-roster`.
-- The October 9 release packages the earlier gear/loot work, quest controls and
-  optional observer hooks. Published core: `1e17cbdc96`; module: `4f7f79d`.
-  The core README owns the matching module pin for the current publication.
-  The October 11 maintenance follow-up has separate qualification in PORTING.md.
-  Previous publication was core `eee1755104` / module `9f99b27`; historical local
-  gear/loot commits were `bb8c37e2b4` / `40f5f7d`.
-- Published October 9 Windows/Linux full-script worldserver/tests-common builds
-  passed **431/431** each, including per-player quest loot and observer additions.
-  Fresh Windows all-three-modules-off passed **19/19** after current core repairs.
-  The companion's reader suite passed **43/43**. Dated intermediate qualification
-  and build-collision recovery remain in PORTING.md.
-- Builds and test realms are stopped; the Linux compiler container is stopped.
-  Corrected quest realm `build/playerbot-smoke-20261008-215311/`
-  completed four bot accepts, objective progression and Testone's explicit
-  turn-in, with native saved reward presence. Earlier attempt `214726` aborted
-  on port contention and stopped. The companion selected separate runtime ports.
-  Preserve companion services; never issue SQL to an unknown listener.
-  Linux server runtime remains
-  untested. Recheck processes/listeners before starting a copied realm; unrelated
-  Docker, model and other-project workloads are outside this task.
-- Current donor item/quest source is pinned at
-  `037c01418b5d01506917a3db9b44fd56ac5f965c`. It was rechecked against remote master
-  for these batches. Check current upstream for the next port and record the
-  exact revision; do not use a stale local WotLK checkout as the default reference.
+- Active core: `TrinityCore-publication-candidate`; independent module:
+  `modules/mod-playerbots`. Both branches are `work/managed-roster`.
+- This alpha milestone replaces the prior core `80d1fc7491` / module `1e108ca`
+  checkpoint. Module `39e7000b6a361bbd455ac006efb6d0d386febe13` includes maintenance,
+  retention, training, native bag-swap and Rogue/Hunter foundations; the core
+  README pins that matching revision. Historical pins and intermediate build
+  counts belong in PORTING.md, not the resume sequence.
+- Final Hunter plus six-role fixture Windows/Linux full-script worldserver/
+  tests-common passed **476/476** each with all three modules enabled.
+  Prior Windows **worldserver and
+  tests-common**, with all three modules disabled, passed **20/20**.
+  Linux server runtime and Rogue/Hunter gameplay remain untested. Linux compiler
+  container and Windows compiler are stopped; no test-owned realm is running.
+- Publication cleanup applied the known explicit Creature include for no-PCH
+  builds; its earlier isolated Linux qualification is documented in the context
+  project. No new canonical native build was run for this include-only change.
+  Fixed helper passwords were removed: copied-realm runs generate private login
+  files and reset only the copied offline human account through native commands.
+  Service-free checks pass. Module milestone identity and the core's matching pin
+  were assigned after cleanup; the source checkpoint does not imply a live replay.
+- Latest prepared copy is `build/playerbot-smoke-20261013-164429/`: native factory
+  created Testrogue and Testhunter, native role preparation completed and both
+  saved level-20 Combat/Marksmanship specs and equipment. Hunter has an active,
+  living level-20 slot-0 native pet. All six bots and test-owned services stopped.
+  The expanded roster is saved, not yet party/raid or gameplay-qualified.
+  Private extra-dps-preparation.json records the extra identities. New
+  `-ReuseExtraDps` replay validates that receipt against saved native identities/
+  enrollment, starts the two managed bots and includes all seven actors in
+  context capture. Service-free checks pass; this replay path is not live-tested.
+- Previous copied realm `build/playerbot-smoke-20261013-120608/` shut down cleanly
+  after human logout, all four bot stops/saves and MySQL shutdown. Preserve
+  unrelated services; verify listener ownership before any database command.
+- Donor module master was checked at `79bd428115c8f33b74b13de23b133d49c3f75c60`;
+  bag-core comparison used AzerothCore master
+  `f5f668e29a7548a566eff4a69cb7a30d216dc7a0`. Recheck remote master for the next
+  port; the reference checkout's working files may be older than origin/master.
 
-## Connected capabilities
+## Current capabilities and limits
 
-The October 11 follow-up adds ordinary whisper/party `repair` at the human's
-selected nearby repair NPC, gated by `Playerbots.Maintenance.Repair.Enabled`.
-The separate adapter uses native paid repair-all on the world owner, with copied
-intent and fresh control/location checks. Client and Linux follow-up are pending;
-Windows full-script worldserver/tests-common passed 433/433. PORTING.md owns
-current build qualification. The October 9 evidence below applies
-to the published baseline, not automatically to this follow-up.
-
-Published infrastructure includes optional modules, native asynchronous bot
-sessions, managed rosters, bounded character creation, MultiBot lifecycle/control
-and shared combat/noncombat/dead engines for Warrior/Mage/Priest.
-
-The published milestone adds party tank/DPS/healer coordination, targeting and movement,
-recovery, buffs, interrupts and native corpse opening. The inventory chain has
-consumable stock, copied stat facts, starter scoring for eight specs at levels
-10–39, `gear?`, explicit one-slot `gear apply`, shared item usage and guarded
-native party votes. Actual native loot affixes can be compared when their
-property/suffix/factor and effects are qualified. Unknown is not a negative fact.
-Automatic equipment management, vendor/profession/token/disenchant classification
-and broader class/spec coverage remain separate.
+- Optional-module boundary, native asynchronous bot sessions, managed rosters,
+  bounded character creation, MultiBot lifecycle/control and shared combat/
+  noncombat/dead engines are connected. Combat admission currently supports
+  **Warrior, Mage, Priest and local Rogue/Hunter baselines**. Neither new class has a live replay
+  yet; role predicates for other classes are not proof of their AI support.
+- Rogue connects default-off native attack admission, generic/Combat/Assassination
+  contexts, current-target combo/energy policy, builders/finishers, Slice and Dice,
+  Kick, shared melee movement and party DPS reassessment. Subtlety uses the generic
+  fallback. Poison/Envenom, stealth/openers, broader spec abilities and gear
+  scoring remain deferred; unknown gear never becomes sale/equip authority.
+- Hunter connects native Auto Shot, focus builders/dumps, starter native spec
+  routes and shared ranged targeting/movement. Existing owned active pets can
+  be called/revived/mended through spells and controlled by native map-owned
+  PetAI. Gate-off/stop/target loss returns them to follow. No pet creation/taming,
+  full rotations, advanced traps/kiting or Hunter scoring. Both full builds and
+  474/474 tests passed; gameplay is unobserved.
+- Default-off disposable fixture now supports six named roles, preserving the
+  original four-slot commands and adding console-only managed fixture20 GUID/
+  role requests. Native level-20 Combat Rogue / Marksmanship Hunter preparation
+  preserves existing gear and uses native talent/equip/learn/save helpers; no pet
+  is created by that fixture helper. Native extra character preparation has now
+  completed in the latest stopped copy; gameplay remains unobserved.
+- The October 13 level-20 party replay observed tank/Arms/Frost routing, accepted
+  tank/DPS casts, Priest Renew/Heal starts, native corpse opening and return to
+  noncombat with everyone alive/full health. This is useful party operation,
+  not a full dungeon clear, quantified threat/healing or every spell landing.
+  No sustained recovery pressure or new resurrection check was claimed.
+- Shared inventory facts cover consumable stock, qualified gear/affixes,
+  positive profession/material/disenchant retention and ordinary bag capacity.
+  `gear?`, explicit one-change `gear apply` and guarded native loot votes are
+  connected. Unknown facts never become sale authority.
+- Native populated ordinary-bag replacement now uses a private swap-scoped
+  core exception while public storage calls retain the nonempty-bag guard.
+  One owned empty backpack candidate, four carried destinations and copied
+  content identities/counts/affixes bound the module action. The human reported
+  a manual populated swap working. Bot-initiated replacement, exact runtime
+  content matching and saved/relogin persistence remain unobserved.
+- Independent default-off maintenance supports native `repair`, recovery-supply
+  `buy <ID>` / `buy vendor`, qualified plain-gray-junk `sell vendor`, and
+  default-class-trainer `trainer` / `trainer learn` / `train <ID>`.
+  These have source/build qualification, not newly observed native
+  repair/resupply/sale/training or persistence. Broad vendor classification,
+  automated bandage use and autonomous budgets/discovery remain later work.
+- Recipe-material facts publish bounded immutable copied IDs under world
+  startup/reload/shutdown. The latest realm booted with this source; explicit
+  reload/material-retention behavior was not checked.
+- Before/after bot saved snapshots both contain the same 58 item rows/mappings,
+  byte-for-byte in the captured strings. The baseline precedes native role
+  provisioning; this is not an isolated causal equip/purchase/loot assertion.
+  The human bag test is outside those bot-only snapshots.
+- Maintenance replay now accepts separate `-MaintenanceEquip`, requiring
+  `-Maintenance` and rejecting the isolated waist-only `-GearApply` mode.
+  Ordinary fixtures reset inherited equip gates; before/after saved captures
+  are diagnostic evidence, not automatic acceptance of every inventory delta.
+  Service-free guard/config-normalization checks passed.
 
 ### Human-led quest controls
 
@@ -116,23 +161,44 @@ Normal chat/link compatibility is not a LANG_ADDON/MultiBot quest UI port.
 
 ## Next two batches
 
-1. Complete selected-NPC maintenance, starting with explicit native repair using
-   personal bot funds. Current donor audit: `79bd428115c8f33b74b13de23b133d49c3f75c60`.
-   Selling needs vendor/profession/quest-item classification; buying needs budget,
-   stock and consumable policy. Protect unknown usage from sale. Keep adapters
-   outside the session class and record Cata differences in PORTING.md.
-2. Aim for one human-led Ragefire clear, combining combat, recovery, loot and
-   available maintenance. Use `.group summon Test` for same-map outdoor staging,
-   checking actual arrival, and dedicated entry for instances. Fix demonstrated
-   blockers together. The [MultiBot feature map](PLAYERBOTS_MULTIBOT_FEATURE_MAP.md)
-   tracks integration gaps. Deferred command cases can join ordinary play.
-   Observer expansion remains tied to concrete diagnoses.
+1. Resume donor combat/class expansion as a connected vertical slice, not another
+   isolated spell or inventory chore. The connected Rogue baseline has completed
+   Windows/Linux validation and source review. Context/strategy/executor/
+   selector/role/admission is now wired. Hunter's connected ranged/pet batch is
+   Windows/Linux qualified at 476/476 including the six-role fixture extension.
+   Reuse the saved Rogue/Hunter roster with `-ReuseExtraDps` in the next useful
+   outdoor raid replay, not separate smoke tests for every ability. The prepared
+   Hunter has a saved native active pet; confirm its actual arrival and behavior.
+   Poison inventory, stealth/openers, all-spec parity and scoring remain explicit
+   dependencies; unsupported gear facts remain Unknown.
+2. Prepare one human-led Ragefire attempt/clear when the human is available.
+   Keep normal party control, durable encounters, tank/healer support and recovery
+   together. October 13 outdoor operation is accepted as a useful checkpoint,
+   not a reason to repeat it for every spell. The fixture's new
+   `-MaintenanceEquip` works alongside maintenance without the old waist-only
+   test assumptions. Use dedicated instance entry; verify actual group, phase,
+   map and arrival before diagnosing behavior. Maintenance/trainer/bag cases
+   join convenient normal play; do not extend that side track with isolated tests.
 
-Development can continue offline until the next useful replay. Do not invent
-completed playtests, use queued replies as outcomes, or force additional telemetry
-checks merely to obtain a clean report.
+Hunter plus fixture source passed enabled Windows/Linux 476/476 each.
+Unchanged-core disabled Windows
+worldserver/tests-common 20/20 describes its completed snapshot.
+Publication is a separate milestone
+decision; do not push automatically. Preserve default-off gates and document
+unobserved maintenance/training/bot migration. Observer expansion remains tied
+to a concrete diagnosis. Remote-independent class work can continue without
+requiring another client session now.
 
 ## Fixture and build rules
+
+- Add `-Maintenance` to the reused interactive full mixed-party module recipe
+  for the next bundled check. It enables Repair/Buy in the copy; other fixtures
+  reset inherited maintenance gates off. Service-free guard/reset checks passed.
+- Selling requires separate `-MaintenanceSell` in that copied recipe; ordinary
+  maintenance keeps its gate off. Add it only for the prepared native sale check.
+- Class training requires separate `-MaintenanceTrain` with `-Maintenance`.
+  Service-free guard/reset tests cover opt-in and inherited duplicates. Do not
+  force an unlearned spell if the prepared bot has no eligible trainer offer.
 
 - Use a clean stopped copied seed. The controlled-drop seed is not a normal
   replay baseline; the accepted pre-farming seed is
@@ -200,9 +266,21 @@ continue porting. Keep any schema/ownership changes in the companion project.
 
 | Local ignored evidence | Scope |
 | --- | --- |
-| `build-both/Testing/Temporary/LastTest.log` | Latest Windows 433-test maintenance follow-up pass, including observer additions |
-| `build/linux-release-20261009/LastTest.log` | Complete current Linux 431-test pass; compiler stopped |
-| `build-core-only/Testing/Temporary/LastTest.log` | Fresh Windows all-three-modules-off 19-test pass after current core repairs |
+| `build-both/Testing/Temporary/LastTest.log` | Latest Windows result; current batch/count recorded in module PORTING.md |
+| `build/linux-release-20261009/LastTest.log` | Published October 9 Linux 431-test snapshot |
+| `build/linux-maintenance-20261011-439/LastTest.log` | Earlier complete Linux 439-test maintenance snapshot |
+| `build/linux-profession-20261011-443/LastTest.log` | Earlier Linux 443-test tool/recipe snapshot |
+| `build/linux-material-20261011-446/LastTest.log` | Earlier Linux 446-test material-retention snapshot |
+| `build/linux-disenchant-20261011-448/LastTest.log` | Earlier Linux 448-test owned-retention snapshot |
+| `build/linux-vendor-20261011-452/LastTest.log` | Earlier Linux 452-test qualified-junk sale snapshot |
+| `build/linux-recipes-20261011-454/LastTest.log` | Earlier Linux 454-test recipe-catalog snapshot |
+| `build/linux-trainer-catalog-20261011-456/LastTest.log` | Earlier Linux 456-test trainer snapshot |
+| `build/linux-recovery-stock-20261011-457/LastTest.log` | Current Linux 457-test recovery-resupply pass; compiler stopped |
+| `build/linux-bag-capacity-20261012-460/LastTest.log` | Earlier Linux 460-test bag-capacity pass; Windows counterpart also passed |
+| `build/linux-empty-bag-fill-20261013-461/LastTest.log` | Earlier empty-bag-fill 461-test pass; Windows counterpart also passed |
+| `build/linux-bag-replacement-20261013-463/LastTest.log` | Current restricted empty-bag replacement Linux 463-test pass; compiler stopped |
+| `build/linux-native-bag-swap-20261013-464/LastTest.log` | Current native populated-bag admission Linux 464-test pass; compiler stopped |
+| `build-core-only/Testing/Temporary/LastTest.log` | Current Windows all-modules-off tests-common 20-test pass; worldserver not rebuilt |
 | `build/playerbot-smoke-20261008-212331/` | Human quest acquisition and four inspections; failed share; clean shutdown |
 | `build/playerbot-smoke-20261008-215311/` | Four bot shares/progression, Testone turn-in and saved 22979; clean shutdown |
 | `build/playerbot-smoke-20261006-113536/` | One native equip change and saved item preservation |

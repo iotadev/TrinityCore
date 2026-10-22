@@ -1,14 +1,41 @@
 # Cataclysm Playerbots roadmap
 
-Updated 2026-10-11. The goal is AzerothCore Playerbots and MultiBot functionality
+Updated 2026-10-21. The goal is AzerothCore Playerbots and MultiBot functionality
 on native TrinityCore Cataclysm 4.3.4. Reuse upstream behavior and preserve Cata's
 session, map, inventory, loot and database ownership.
+
+Publication cleanup carried the known no-PCH include fix into canonical source,
+removed fixed helper login credentials and refreshed release-facing docs. The
+476/476 native results below remain dated build evidence, not a new post-cleanup
+compile. No gameplay scope was added; the combined outdoor replay is still next.
 
 The near-term gameplay milestone is a useful human-led Warrior/Mage/Priest
 dungeon party. Full class coverage, pets, autonomous populations, quests, travel
 and automatic group formation follow on separate tracks.
 
 ## Current capabilities
+
+Local Hunter baseline adds native admission, focus-based ranged combat/Auto Shot,
+starter spec priorities and control/summon/revive/mend of an existing owned pet.
+The independent gate defaults off. Native core owns pet lifecycle and spell
+effects; no pet creation/taming, Wrath ammo/mana/happiness, advanced traps/kiting
+or Hunter gear scoring. Windows/Linux worldserver/tests-common passed 474/474
+each; no live Hunter/pet replay. A default-off six-role fixture extension adds
+native managed-GUID Rogue/Hunter preparation without replacing the four-slot
+recipe or creating pets. Final-source Windows/Linux builds passed 476/476 each;
+compilers and test-owned realms are stopped. Native provisioning and role
+preparation completed in a stopped disposable copy: level-20 Combat Rogue and
+Marksmanship Hunter, with saved equipment and an active living native Hunter
+pet. The reuse-only outdoor raid helper now includes all seven actors in capture;
+service-free checks passed. Expanded raid gameplay/pet combat remain unobserved.
+
+Local Rogue baseline now wires native class admission, generic/Combat/
+Assassination strategies, target-qualified energy/combo builders and finishers,
+Slice and Dice, Kick and shared melee movement/party targeting. Its independent
+combat gate defaults off. Subtlety uses a generic fallback; poison/Envenom,
+stealth/openers, broader spec abilities and Rogue equipment scoring remain later
+dependencies. Windows/Linux full builds and 469/469 tests passed; Rogue has no
+live replay yet.
 
 The earlier published core `eee1755104` / module `9f99b27` provided optional modules, native
 bot lifecycle, managed rosters, bounded character creation, MultiBot lifecycle/
@@ -47,16 +74,107 @@ bag/container behavior and master-progress copying are not ported by this slice.
 
 Read inspection is not an external API/MultiBot quest UI port. NPC discovery,
 quest travel, chain rescanning, automatic sharing/multiple-choice reward selection, master-progress
-synchronization, professions/vendor/token/disenchant classification, autonomous
+synchronization, full profession/vendor/token/disenchant classification, autonomous
 populations and broader class/spec/pet coverage remain separate.
 
 ## Current validation
 
-The October 11 maintenance follow-up implements explicit `repair`
-at a selected nearby NPC through native paid repair-all. Its separate gate is
-off by default. Windows worldserver/tests-common passed 433/433. Details are in
-module PORTING.md; Linux and client
-qualification remain pending. The table below describes the published milestone.
+Hunter plus fixture source passed Windows/Linux full-script worldserver/
+tests-common 476/476 each. Compilers and test-owned realms are stopped.
+The following bag/Rogue checkpoints are completed predecessor snapshots, not
+validation of the new Hunter source.
+
+The native populated-bag blocker now has a swap-specific Cata adaptation based
+on current AzerothCore master f5f668e: generic storage remains guarded and only
+owned carried-bag/empty-backpack-bag native exchanges can pass. Current full
+Windows/Linux worldserver/tests-common builds passed 469/469 each, including the
+connected Rogue baseline. Builds,
+compiler and realms are stopped. A new core predicate test enumerates all required
+fact combinations. Fresh Windows modules-off worldserver/tests-common passed
+20/20 including the new predicate. Native bot migration/persistence and Linux
+runtime remain unobserved. The October 13 human-reported manual swap and normal
+party replay have separate runtime scope in PORTING.md.
+
+The following checkpoints describe earlier source snapshots, not current build
+jobs or blockers; the current results above supersede them.
+
+Local explicit bag upgrade now uses native replacement for empty ordinary
+carried bags, with copied GUID/count/affix confirmation and
+one-change bounds. Unsupported/busy/specialized layouts stay excluded.
+Linux passed 463/463; Windows full build passed 463/463 and its final-source
+incremental check is running. Linux compiler and realms are stopped.
+Populated replacement is blocked by Cata's earlier nonempty-bag storage check,
+before its transfer branch. A donor-informed swap-specific core adaptation is
+needed; weakening generic storage or module-side migration is not the plan.
+Older counts below describe predecessor snapshots.
+
+Local explicit `gear apply` now falls back to one native empty-bag-slot fill
+after gear candidates, with owned empty ordinary backpack bags only. Replacement,
+bank/nested bags and content migration stay unported. Linux built and passed
+461/461; Windows also completed 461/461, inspected before this extension.
+Native fill/persistence is not yet observed.
+
+Local bag-capacity retention now qualifies ordinary bag upgrades from all four
+carried slots and feeds reward inspection. Unknown/specialized cases stay
+unresolved; no bag equip, sale or loot-vote scope is widened. Linux built and
+passed 460/460; Windows also completed 460/460, collected October 13.
+These counts precede the empty-slot mutation extension; older counts below
+describe their own snapshots.
+
+Current recovery resupply extends selected-vendor buying to five independent
+categories: food, drink, healing/mana potions and bandages. Potions reuse the
+combat usability classifier; bandage stocking is not an automated use action.
+Windows/Linux worldserver/tests-common passed 457/457 each. Native resupply/
+persistence and Linux realm runtime remain unobserved. Older counts below
+describe their own source snapshots.
+
+The local trainer extension adds native catalogue inspection and a bounded
+explicit learn-all batch: 128 scanned rows, 12 displayed offers, 16 purchases.
+Native policy and list/buy handlers remain authoritative. Windows/Linux
+full-script worldserver/tests-common passed 456/456 each for current source;
+compiler and realms are stopped. No client learning/persistence or Linux realm
+runtime claim. The later bundled trainer replay uses the separate opt-in;
+ordinary fixtures keep Train disabled. Travel, professions and autonomous
+training remain separate tracks. Older single-spell 455/455 evidence is in PORTING.md.
+
+Latest recipe-material fallback uses a bounded immutable copied skill/item index
+under world startup/config-reload/shutdown ownership. Windows/Linux full-script
+worldserver/tests-common passed 454/454 each. Native catalog startup/reload and
+client publication remain unobserved; older results below are their snapshots.
+
+Local `sell vendor` now supports only qualified plain gray junk at a selected
+nearby vendor, with a separate default-off gate and complete fresh no-need facts.
+General Vendor/Auction and quality sweeps remain blocked by missing retention
+coverage. Current qualification is in PORTING.md; native sale/persistence has not
+been observed in a client fixture.
+Windows and Linux worldserver/tests-common passed 452/452 for the final native
+adapter and quest guard. Service-free copied-fixture checks passed; compiler stopped.
+
+Local carried disenchant-retention facts now combine exact owned identity with
+qualified non-upgrade, native skill/rarity and donor binding policy. They do not
+authorize casts or sales. Current source qualification is in PORTING.md; other
+retention branches and complete vendor fallback remain separate dependencies.
+Windows/Linux worldserver/tests-common passed 448/448 each. Client retention and
+Linux realm runtime remain untested; earlier counts below describe their snapshots.
+
+Local profession-retention work adds positive tool/recipe facts to human-led
+item usage; the material extension also adds bounded native skill-line reagent/
+output facts with donor gathering aliases. Recipe-template fallback now uses a
+bounded immutable skill/item index under world startup/reload/shutdown ownership.
+Native skills and learning routes are read without mutation. Current
+follow-up qualification is in PORTING.md. Material catalogs and other retention
+branches remain dependencies before general selling; the qualified-junk subset
+uses the separate world-owned classifier described above.
+Windows and Linux worldserver/tests-common passed 446/446 each. Client profession
+behavior and Linux realm runtime remain untested; prior results below are dated snapshots.
+
+Latest local maintenance adds one-bundle `buy <numeric item ID>` and bounded
+`buy vendor` food/drink restock to published repair core `80d1fc7491` / module
+`1e108ca`. Native operations use personal bot funds; vendor mode uses fresh
+donor stock policy. Windows and Linux worldserver/tests-common passed 439/439
+each. Client maintenance and Linux realm runtime remain untested. Autonomous reserves, discovery
+and scheduling remain later work. Module PORTING.md records dated results.
+The table below describes the October 9 published milestone.
 
 | Scope | Verified result | Remaining limit |
 | --- | --- | --- |
@@ -82,14 +200,24 @@ runtime provenance remain in module [PORTING.md](../../../modules/mod-playerbots
 
 ## Next two batches
 
-1. Port human-directed maintenance at a selected nearby NPC, starting with native
-   repair using bot funds. Selling needs safe vendor/profession/quest-item usage;
-   buying needs budget and vendor-stock policy. Unknown usage remains protected
-   from sale. Current donor audit and repair adaptation are in module PORTING.md.
+1. Continue donor combat/class coverage in connected batches. The Rogue baseline
+   passed Windows/Linux validation and review; Hunter's ranged/pet slice is
+   Windows/Linux-qualified at 476/476 including the fixture extension.
+   Include normally created/equipped Rogue and Hunter
+   characters in one outdoor raid replay rather than testing abilities in
+   isolation. Hunter needs an existing native active pet; automatic pet creation
+   is not part of this batch.
+   Context/strategy/executor/admission are wired; runtime behavior is unverified.
+   Pets, poison inventory, advanced stealth and all-spec parity remain explicit
+   later dependencies. Do not
+   default to another isolated spell or maintenance side track.
 2. Aim for one human-led Ragefire clear covering combat, recovery, loot and
    available maintenance together. Existing group summon improves same-map staging;
    dedicated instance entry remains required. Fix demonstrated blockers in batches.
    Use the [MultiBot feature map](PLAYERBOTS_MULTIBOT_FEATURE_MAP.md) for UI dependencies.
+   The October 13 outdoor replay is a useful accepted checkpoint, not a full
+   clear or a mandatory per-feature repeat. Maintenance cases join convenient
+   party play; remote class work does not require another client session now.
 
 The October 9 milestone is published as core `1e17cbdc96` / module `4f7f79d`.
 Maintenance is a follow-up. Broader economy, classes and autonomy stay separate.

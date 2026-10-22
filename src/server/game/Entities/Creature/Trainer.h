@@ -73,11 +73,13 @@ namespace Trainer
         Type GetTrainerType() const { return _type; }
         uint32 GetTrainerRequirement() const { return _requirement; }
         bool IsTrainerValidForPlayer(Player const* player) const;
+        // Read-only native policy access for optional server-owned clients.
+        std::vector<Spell> const& GetSpells() const { return _spells; }
+        bool CanTeachSpell(Player const* player, Spell const* trainerSpell) const;
+        SpellState GetSpellState(Player const* player, Spell const* trainerSpell) const;
 
     private:
         Spell const* GetSpell(uint32 spellId) const;
-        bool CanTeachSpell(Player const* player, Spell const* trainerSpell) const;
-        SpellState GetSpellState(Player const* player, Spell const* trainerSpell) const;
         void SendTeachFailure(Creature const* npc, Player const* player, uint32 spellId, FailReason reason) const;
         void SendTeachSucceeded(Creature const* npc, Player const* player, uint32 spellId) const;
         std::string const& GetGreeting(LocaleConstant locale) const;

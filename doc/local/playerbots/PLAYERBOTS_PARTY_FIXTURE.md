@@ -19,6 +19,76 @@ characters for every spell.
 
 ## Next bundled replay
 
+The helper generates a short per-copy login and writes it to the ignored private
+`test-login.txt` in the copied realm directory. Reused human accounts are reset
+through the native password command in the copy only; the stopped seed is
+unchanged. Wait for readiness and read that file rather than reusing a password
+from a previous run. Credentials are not printed with setup command arguments.
+
+Use an outdoor raid to exercise the existing tank/healer/Mage core together
+with the new Rogue and Hunter baselines. The stopped prepared seed is
+`build/playerbot-smoke-20261013-164429`: Testrogue and Testhunter have saved
+level-20 Combat/Marksmanship talents and equipment; Hunter has a saved active,
+living native pet. No Rogue/Hunter combat or raid replay has been observed yet.
+Enable each new class's separate combat gate only in the disposable realm.
+Console-only `server playerbotdev managed fixture20 <GUID>
+rogue` / `... <GUID> hunter` prepares an online configured managed level-20 bot
+before grouping. Enable Dev/Fixture20 explicitly in the copy; class/spec/idle/
+life/level and five-second expiry checks still apply. Rogue receives Combat
+fixture talents/weapons/leather; Hunter receives Marksmanship talents, bow/
+leather and baseline learned abilities. Existing gear is preserved. Watch
+PB-FIXTURE completion, not just command acceptance; incomplete preparation is
+possible. These controlled fixture grants are not normal progression. Hunter
+pet creation remains separate. The roster is prepared; gameplay is pending.
+
+For replay, copy that stopped seed using the existing required path arguments
+and `-CheckFullParty -ReuseFullPartyFixture -MixedParty -Interactive -ModuleConfig
+-RoleFixture -ReuseExtraDps -RecoveryLoot -StrategyFixture -ContextCapture
+-ContextDiagnostics -ContextActionHistory`, plus the four Warrior/Mage/Priest
+Engine flags. `-ReuseExtraDps` validates the private preparation receipt against
+the copied database and native enrollment, enables the new combat gates, stages
+and starts both managed identities, and includes seven actors in observer capture.
+It does not create characters, rerun their role grants or generate pets. It
+stops/saves both extras along with the four original bots when the human logs out.
+Service-free helper checks passed; end-to-end replay is still pending.
+
+Invite the original four bots, convert to raid, then invite Testrogue and
+Testhunter. Wait for actual arrival and confirm health, map/instance and phase
+before combat. This mode rejects dungeon, quest, isolated gear-apply and
+one-time extra provisioning combinations. Do not rerun `-PrepareExtraDps` on
+the prepared seed: that mode deliberately rejects existing dedicated identities.
+
+Use durable enemies appropriate for the larger group's damage, verify actual
+group/map/phase/arrival, and exercise ordinary engage/target-loss/stop/resume,
+ranged positioning, pet attack/return and recovery together. Summon/revive cases
+can join that session when naturally available; do not force a per-spell suite.
+Raid grouping changes subgroup chat and some quest/instance eligibility. Use
+raid-wide controls where supported or individual whispers; do not assume party
+chat reaches every raid subgroup. Convert a five-player subset for Ragefire/
+ordinary quest checks rather than bypassing native raid restrictions.
+
+For a native qualified-junk sale check within this same party session, separately
+add `-MaintenanceSell` alongside `-Maintenance`. Normal maintenance leaves Sell
+off. Collect ordinary gray misc/junk, then select a nearby vendor and use
+`/w Testone sell vendor` or `/p sell vendor`. The limited classifier requires
+no relevant professions/guild on either player, no active quest reference and
+plain unbound/unscripted/unaffixed metadata. Other gray item classes are retained.
+Expect at most eight carried stacks per bot, native buyback/money behavior and
+an observed-count reply. No sale/persistence outcome has been recorded yet.
+
+Use the existing helper's `-Maintenance` switch with `-ModuleConfig -CheckFullParty
+-ReuseFullPartyFixture -MixedParty -Interactive` when preparing this combined
+check. It enables Repair/Buy only in the copied realm and resets inherited gates
+to off for ordinary fixtures. Keep role/engine/recovery settings in the established
+party recipe. No new realm is kept running while awaiting the human.
+Add `-MaintenanceEquip` for ordinary explicit equip/bag commands during this
+same replay. It requires Maintenance, rejects old waist-only GearApply mode and
+does not provision/grant items. It normalizes duplicate equip/score settings and
+captures ignored bot inventory snapshots before provisioning/session and after
+normal logout. These are diagnostic snapshots, not a claim that all loot or
+consumption deltas must remain identical. The old isolated waist fixture stays
+available for its historical case but is not the required path for normal play.
+
 Aim for useful human-led Ragefire progress toward a clear with the provisioned
 level-20 party. Confirm group, phase, map/instance, arrival, gear and consumables
 before diagnosing behavior. Use native group summon for same-map outdoor staging
@@ -26,14 +96,48 @@ and the dedicated instance-entry path. The real-quest replay is already complete
 the recipes below remain available for convenient coverage rather than required repeats.
 
 The new maintenance follow-up can join normal play after build qualification:
-enable `Playerbots.Maintenance.Repair.Enabled` only in the disposable module
-config, select a nearby repair NPC and use `/w Testone repair` or `/p repair`.
+enable maintenance with the copied-fixture switch above, select a nearby repair
+NPC and use `/w Testone repair` or `/p repair`.
 Ensure bots actually reached interaction distance and have their own funds.
 Ordinary dungeon wear is sufficient. Read reported equipped missing durability
 and copper spent; insufficient funds can produce partial repair. A queued reply
 is not completion. No repair playtest has been observed yet.
 
+The local purchase follow-up can join this maintenance stop: enable
+maintenance in the copy, select a food/drink vendor and
+use `buy <numeric item ID>` by whisper/party chat. Pick an actual offered item
+usable by the bot and confirm vendor arrival, personal funds and bag space.
+One native bundle is bought, capped at two carried stacks of that ID. Read the
+count/money reply; no purchase or persistence playtest has been observed yet.
+Alternatively use `/p buy vendor` for needed food/drink/recovery supply selection at the captured
+vendor. Fresh better-stock counts can suppress buying; native failures stop a
+selected type. The summary reports observed quantities/spending, not saved stock.
+The batch is bounded to ten bundles per type and can join normal dungeon wear/
+recovery at a maintenance stop; no separate resupply-only session is required.
+If that vendor actually offers usable healing/mana potions or bandages, check
+the separate quantity/spending fields too. Native skill/level requirements apply;
+flasks and channeled potions are not eligible. Bandage purchases do not imply
+automated bandage use. Do not modify vendor rows or force a purchase merely to
+cover this case; absent offers leave this observation deferred.
+
 ## Existing fixture recipes
+
+The explicit equip request can also fill one empty carried bag slot after gear
+candidates. If the bot naturally has a usable empty ordinary backpack bag and a
+free carried bag slot, `gear apply` may move that exact GUID through native equip
+admission. With no free slot, a larger ordinary candidate may instead replace
+the smallest qualified ordinary bag through native equip/storage. Confirm
+the new/displaced bag GUIDs, retained content identities/counts/affixes and later
+saved state. Bank/nested/specialized/affixed/busy layouts are excluded. An
+unconfirmed result is not rollback; inspect before retry. Populated replacement
+requires the matching swap-scoped native-core admission fix and reviewed current
+builds. Observe the new/displaced bag GUIDs and exact contained item identities,
+counts/affixes after native compaction, then later saved/relogin state. Generic
+storage rejection and bank/nested/specialized/busy exclusions must remain.
+Do not strip live inventory or force a ported action to claim success. If native
+core swap coverage needs controlled setup, ordinary GM-created items in the
+copied realm are valid fixture data; label that setup separately from bot
+purchasing/equipping or autonomous item generation.
 
 For a read-only inventory check, use `-GearInspection -ModuleConfig -CheckFullParty
 -ReuseFullPartyFixture -MixedParty -Interactive` with the existing stopped seed.
@@ -544,6 +648,20 @@ this observation deferred rather than rebuilding the fixture for one feature.
 Autonomous routing, automatic group formation and full class parity are not
 acceptance gates for this human-led milestone. Stop all disposable services when
 the session ends. No runtime was started to prepare this checklist.
+
+For a class-trainer stop during this same replay, use the separate
+`-MaintenanceTrain` opt-in alongside `-Maintenance` in the reused mixed-party
+fixture. Ordinary maintenance does not enable training. Select an actual default
+class trainer appropriate for one bot and get both players within native
+interaction range. Confirm its trainer-offered ID, bot level/prerequisites,
+current unlearned spell state and sufficient bot-owned funds before whispering
+`trainer` to see currently learnable IDs/costs, then `train <ID>` for one
+purchase or `trainer learn` for a bounded cheapest-first batch. The trainer
+purchase ID can be a wrapper rather than the learned
+spell ID. Observe learned state and funds, then saved state after normal logout.
+One known/unoffered ID should not spend funds or grant spells. Do not strip
+spells, edit native trainer rows or force success to make this test pass; if the
+prepared bot has no eligible unlearned offer, leave training deferred.
 
 For the local coordination batch, use an ordinary multi-enemy pull with enemies
 that survive long enough to observe target changes. Move the existing skull mark

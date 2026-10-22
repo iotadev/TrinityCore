@@ -16,6 +16,7 @@
  */
 
 #include "Player.h"
+#include "PlayerBagSwap.h"
 #include "AccountMgr.h"
 #include "AchievementMgr.h"
 #include "Archaeology.h"
@@ -9671,7 +9672,7 @@ bool Player::HasItemTotemCategory(uint32 TotemCategory) const
     return false;
 }
 
-InventoryResult Player::CanStoreItem_InSpecificSlot(uint8 bag, uint8 slot, ItemPosCountVec &dest, ItemTemplate const* pProto, uint32& count, bool swap, Item* pSrcItem) const
+InventoryResult Player::CanStoreItem_InSpecificSlot(uint8 bag, uint8 slot, ItemPosCountVec &dest, ItemTemplate const* pProto, uint32& count, bool swap, Item* pSrcItem, bool nativeBagSwap) const
 {
     Item* pItem2 = GetItemByPos(bag, slot);
 
@@ -9682,7 +9683,18 @@ InventoryResult Player::CanStoreItem_InSpecificSlot(uint8 bag, uint8 slot, ItemP
     uint32 need_space;
 
     if (pSrcItem && pSrcItem->IsNotEmptyBag() && !IsBagPos(uint16(bag) << 8 | slot))
-        return EQUIP_ERR_DESTROY_NONEMPTY_BAG;
+    {
+        // Only SwapItem's validated bag-to-bag exchange may store the displaced bag.
+        // Generic CanStore callers retain the nonempty-bag rejection.
+        Bag const* targetBag = pItem2 ? pItem2->ToBag() : nullptr;
+        bool carried = pSrcItem->GetBagSlot() == INVENTORY_SLOT_BAG_0 &&
+            pSrcItem->GetSlot() >= INVENTORY_SLOT_BAG_START && pSrcItem->GetSlot() < INVENTORY_SLOT_BAG_END;
+        bool backpack = bag == INVENTORY_SLOT_BAG_0 && slot >= INVENTORY_SLOT_ITEM_START && slot < INVENTORY_SLOT_ITEM_END;
+        if (!PlayerBagSwap::AllowsStorage(nativeBagSwap, swap, carried, backpack,
+            pSrcItem->GetOwnerGUID() == GetGUID(), pItem2 && pItem2->GetOwnerGUID() == GetGUID(),
+            targetBag && targetBag->IsEmpty()))
+            return EQUIP_ERR_DESTROY_NONEMPTY_BAG;
+    }
 
     // empty specific slot - check item fit to slot
     if (!pItem2 || swap)
@@ -9858,6 +9870,11 @@ InventoryResult Player::CanStoreItem_InInventorySlots(uint8 slot_begin, uint8 sl
 
 InventoryResult Player::CanStoreItem(uint8 bag, uint8 slot, ItemPosCountVec &dest, uint32 entry, uint32 count, Item* pItem, bool swap, uint32* no_space_count) const
 {
+    return CanStoreItemInternal(bag, slot, dest, entry, count, pItem, swap, no_space_count, false);
+}
+
+InventoryResult Player::CanStoreItemInternal(uint8 bag, uint8 slot, ItemPosCountVec &dest, uint32 entry, uint32 count, Item* pItem, bool swap, uint32* no_space_count, bool nativeBagSwap) const
+{
     TC_LOG_DEBUG("entities.player.items", "Player::CanStoreItem: Bag: %u, Slot: %u, Item: %u, Count: %u", bag, slot, entry, count);
 
     ItemTemplate const* pProto = sObjectMgr->GetItemTemplate(entry);
@@ -9903,7 +9920,7 @@ InventoryResult Player::CanStoreItem(uint8 bag, uint8 slot, ItemPosCountVec &des
     // in specific slot
     if (bag != NULL_BAG && slot != NULL_SLOT)
     {
-        res = CanStoreItem_InSpecificSlot(bag, slot, dest, pProto, count, swap, pItem);
+        res = CanStoreItem_InSpecificSlot(bag, slot, dest, pProto, count, swap, pItem, nativeBagSwap);
         if (res != EQUIP_ERR_OK)
         {
             if (no_space_count)
@@ -12075,7 +12092,8 @@ void Player::SwapItem(uint16 src, uint16 dst)
     ItemPosCountVec sDest2;
     uint16 eDest2 = 0;
     if (IsInventoryPos(src))
-        msg = CanStoreItem(srcbag, srcslot, sDest2, pDstItem, true);
+        msg = CanStoreItemInternal(srcbag, srcslot, sDest2, pDstItem->GetEntry(),
+            pDstItem->GetCount(), pDstItem, true, nullptr, true);
     else if (IsBankPos(src))
         msg = CanBankItem(srcbag, srcslot, sDest2, pDstItem, true);
     else if (IsEquipmentPos(src))

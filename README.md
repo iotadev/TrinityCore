@@ -31,25 +31,29 @@ compatible. See the [module integration guide](modules/README.md) for the build
 boundary. The modules are independently selectable with
 `-DMODULE_MOD_PLAYERBOTS=ON|OFF` and `-DMODULE_MOD_AHBOT=ON|OFF`.
 
-For the current October 2026 snapshot, use the matching module
-revisions below. It combines the earlier gear/loot work with native quest sharing,
+For reproducible checkouts of this alpha milestone, use the matching module
+revisions below. The milestone combines gear/loot with native quest sharing,
 acceptance, inspection and explicit rewards. Four bots accepted and completed
 one real quest; one bot's explicit turn-in and chosen reward were saved. This
 does not establish automatic quest travel or turn-in. Native sharing availability
 and confirmation identity repairs retain core eligibility checks, including
 when Playerbots is disabled.
 
-The October 9 milestone's Windows and Linux modules-enabled worldserver/tests-common passed 431 tests
-each. A fresh Windows build with all three installed optional modules disabled
-passed 19 core tests. The companion's 43 reader tests also passed. See the
-[milestone record](doc/local/playerbots/PLAYERBOTS_QUEST_MILESTONE.md).
+The October 2026 development milestone adds default-off Rogue/Hunter combat
+baselines, including native Hunter pet control, and selected-NPC maintenance
+for repair, recovery resupply, qualified junk sales and class training. Inventory
+retention and bounded ordinary-bag upgrades preserve native inventory authority;
+unknown item facts do not authorize sales or equipment changes.
 
-The October 11 follow-up adds explicit `repair` at a selected nearby NPC, using
-the bot's funds through native Cata repair-all. The feature defaults off. Windows
-worldserver/tests-common built and passed 433/433 tests; Linux and client repair
-validation remain pending. The earlier Linux and modules-disabled results above
-apply to the October 9 source. The updated roadmap prioritizes maintenance and
-a human-led Ragefire clear; the [MultiBot feature map](doc/local/playerbots/PLAYERBOTS_MULTIBOT_FEATURE_MAP.md)
+The October 13 source passed Windows and Linux modules-enabled worldserver/
+tests-common builds with **476/476 tests** each. The Windows all-three-modules-off
+boundary passed **20/20**. Later helper/documentation cleanup and a previously
+isolated no-PCH include correction are not a new native build qualification.
+The six-bot roster is saved and prepared, but Rogue/Hunter combat and the expanded
+outdoor raid remain untested. Linux realm runtime, complete rotations and a
+human-led dungeon clear are also unverified. Historical quest evidence remains
+in the [milestone record](doc/local/playerbots/PLAYERBOTS_QUEST_MILESTONE.md).
+The [MultiBot feature map](doc/local/playerbots/PLAYERBOTS_MULTIBOT_FEATURE_MAP.md)
 records server/UI integration gaps.
 
 The experimental gear model covers implemented specs at levels 10–39. Optional
@@ -66,7 +70,7 @@ retains its historical revisions and client lifecycle evidence.
 
 | Module | Repository | Commit |
 | --- | --- | --- |
-| Playerbots | [iotadev/cata-playerbots](https://github.com/iotadev/cata-playerbots) | `1e108ca6c2451afb528aae151532dcf8610af563` |
+| Playerbots | [iotadev/cata-playerbots](https://github.com/iotadev/cata-playerbots) | `39e7000b6a361bbd455ac006efb6d0d386febe13` |
 | AHBot | [iotadev/cata-ahbot](https://github.com/iotadev/cata-ahbot) | `ac2064e91b02af6b345b492a3f3453614b0087ab` |
 
 Clone each repository into the shown `modules/` directory and check out its

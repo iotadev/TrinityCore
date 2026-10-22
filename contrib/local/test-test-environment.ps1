@@ -67,6 +67,55 @@ try {
     $questTokens = $null; $questErrors = $null
     $questAst = [Management.Automation.Language.Parser]::ParseFile((Join-Path $PSScriptRoot 'playerbot-lifecycle-smoke.ps1'), [ref]$questTokens, [ref]$questErrors)
     Assert-True ($questErrors.Count -eq 0) 'Quest fixture harness parse failed.'
+    & {
+        foreach ($name in @('New-TestLoginSecret','Write-TestLoginFile','Reset-TestHumanLogin')) {
+            $definition = $questAst.Find({ param($node)
+                $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name
+            }, $true)
+            Assert-True ($null -ne $definition) 'Private fixture login helper missing.'
+            . ([scriptblock]::Create($definition.Extent.Text))
+        }
+        $stage = $testRoot
+        $secret = New-TestLoginSecret
+        Assert-True ($secret -cmatch '^Bot[0-9A-F]{6}$') 'Generated test login must be short and command-safe.'
+        $script:privateCommand = $null
+        function Invoke-TestSql([string]$sql) {
+            if ($sql.StartsWith('SELECT HEX(salt)')) { return ('A' * 64) }
+            if ($sql.StartsWith('SELECT COUNT(*)')) { return '1' }
+            throw 'Unexpected credential-reset SQL.'
+        }
+        function Send-WorldCommand([string]$command, [switch]$Sensitive) {
+            Assert-True ([bool]$Sensitive) 'Credential setup must suppress command arguments.'
+            $script:privateCommand = $command
+        }
+        function Wait-For([scriptblock]$condition, [int]$seconds, [string]$label) {
+            Assert-True (& $condition) 'Credential-reset completion was not checked.'
+        }
+        Reset-TestHumanLogin
+        $login = Get-Content -LiteralPath (Join-Path $stage 'test-login.txt') -Raw
+        Assert-True ($login.Contains('Account: PB01HUMAN')) 'Private login file missing fixture identity.'
+        Assert-True ($script:privateCommand -cmatch '^account set password PB01HUMAN (Bot[0-9A-F]{6}) \1$') 'Native password reset must use the generated secret.'
+        Assert-True ($login.Contains("Password: $($Matches[1])")) 'Private login file must match the native reset.'
+        function Invoke-TestSql([string]$sql) { return '' }
+        Assert-Rejected { Reset-TestHumanLogin }
+        $script:privateCommand = $null
+    }
+    $maintenanceGuard = $questAst.Find({ param($node)
+        $node -is [Management.Automation.Language.IfStatementAst] -and
+        $node.Extent.Text.StartsWith('if ($Maintenance -and ')
+    }, $true)
+    Assert-True ($null -ne $maintenanceGuard) 'Maintenance fixture guard not found.'
+    $maintenanceGuardBlock = [scriptblock]::Create($maintenanceGuard.Extent.Text)
+    $Maintenance = $true
+    $MaintenanceSell = $false
+    $MaintenanceTrain = $false
+    $ModuleConfig = $Interactive = $CheckFullParty = $ReuseFullPartyFixture = $MixedParty = $true
+    . $maintenanceGuardBlock
+    foreach ($requiredFlag in @('ModuleConfig','Interactive','CheckFullParty','ReuseFullPartyFixture','MixedParty')) {
+        Set-Variable -Name $requiredFlag -Value $false
+        Assert-Rejected { . $maintenanceGuardBlock }
+        Set-Variable -Name $requiredFlag -Value $true
+    }
     $questWriter = $questAst.Find({ param($node)
         $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Write-TestWorldConfig'
     }, $true)
@@ -75,7 +124,151 @@ try {
         ($_.Extent.Text.Contains('Playerbots\.Quest\.') -or $_.Extent.Text.Contains('Playerbots.Quest.AcceptShared.Enabled'))
     })
     Assert-True ($questResetStatements.Count -eq 2) 'Quest gate reset statements not found.'
+    $maintenanceResetStatements = @($questWriter.Body.EndBlock.Statements | Where-Object {
+        $_ -is [Management.Automation.Language.AssignmentStatementAst] -and
+        ($_.Extent.Text.Contains('Playerbots\.Maintenance\.') -or $_.Extent.Text.Contains('Playerbots.Maintenance.Repair.Enabled'))
+    })
+    Assert-True ($maintenanceResetStatements.Count -eq 2) 'Maintenance reset statements not found.'
+    $maintenanceReset = [scriptblock]::Create((($maintenanceResetStatements | ForEach-Object { $_.Extent.Text }) -join [Environment]::NewLine))
+    foreach ($Maintenance in @($false, $true)) {
+$text = "Playerbots.Maintenance.Repair.Enabled = 1`r`n  Playerbots.Maintenance.Buy.Enabled = 1`r`nPlayerbots.Maintenance.Buy.Enabled = 1`r`n Playerbots.Maintenance.Sell.Enabled = 1`r`nPlayerbots.Maintenance.Sell.Enabled = 1`r`n Playerbots.Maintenance.Train.Enabled = 1`r`nPlayerbots.Maintenance.Train.Enabled = 1`r`nUnrelated = preserved`r`n"
+        . $maintenanceReset
+        foreach ($maintenanceGate in @('Repair','Buy')) {
+            $entries = [regex]::Matches($text, "(?m)^Playerbots\.Maintenance\.$maintenanceGate\.Enabled = ([01])\r?$")
+            Assert-True ($entries.Count -eq 1 -and $entries[0].Groups[1].Value -eq [string][int]$Maintenance) 'Inherited maintenance gate was not replaced.'
+        }
+        Assert-True ($text.Contains('Unrelated = preserved')) 'Maintenance changed unrelated configuration.'
+        Assert-True ([regex]::Matches($text, '(?m)^Playerbots\.Maintenance\.Sell\.Enabled = 0\r?$').Count -eq 1) 'Ordinary maintenance enabled selling.'
+        Assert-True ([regex]::Matches($text, '(?m)^Playerbots\.Maintenance\.Train\.Enabled = 0\r?$').Count -eq 1) 'Ordinary maintenance enabled training.'
+    }
+    $sellGuard = $questAst.Find({ param($node)
+        $node -is [Management.Automation.Language.IfStatementAst] -and $node.Extent.Text.StartsWith('if ($MaintenanceSell -and ')
+    }, $true)
+    Assert-True ($null -ne $sellGuard) 'Sale fixture guard not found.'
+    $sellGuardBlock = [scriptblock]::Create($sellGuard.Extent.Text)
+    $MaintenanceSell = $true; $Maintenance = $false
+    Assert-Rejected { . $sellGuardBlock }
+    $Maintenance = $true; . $sellGuardBlock
+    . $maintenanceReset
+    Assert-True ([regex]::Matches($text, '(?m)^Playerbots\.Maintenance\.Sell\.Enabled = 1\r?$').Count -eq 1) 'Explicit sale opt-in was not applied.'
+    $trainGuard = $questAst.Find({ param($node)
+        $node -is [Management.Automation.Language.IfStatementAst] -and $node.Extent.Text.StartsWith('if ($MaintenanceTrain -and ')
+    }, $true)
+    Assert-True ($null -ne $trainGuard) 'Training fixture guard not found.'
+    $trainGuardBlock = [scriptblock]::Create($trainGuard.Extent.Text)
+    $MaintenanceTrain = $true; $Maintenance = $false
+    Assert-Rejected { . $trainGuardBlock }
+    $Maintenance = $true; . $trainGuardBlock
+    . $maintenanceReset
+    Assert-True ([regex]::Matches($text, '(?m)^Playerbots\.Maintenance\.Train\.Enabled = 1\r?$').Count -eq 1) 'Explicit training opt-in was not applied.'
+    $MaintenanceTrain = $false
     $questReset = [scriptblock]::Create((($questResetStatements | ForEach-Object { $_.Extent.Text }) -join [Environment]::NewLine))
+    $equipGuard = $questAst.Find({ param($node)
+        $node -is [Management.Automation.Language.IfStatementAst] -and $node.Extent.Text.StartsWith('if ($MaintenanceEquip -and ')
+    }, $true)
+    Assert-True ($null -ne $equipGuard) 'Maintenance equip guard not found.'
+    $equipGuardBlock = [scriptblock]::Create($equipGuard.Extent.Text)
+    $MaintenanceEquip = $true; $Maintenance = $false; $GearApply = $false
+    Assert-Rejected { . $equipGuardBlock }
+    $Maintenance = $true; $GearApply = $true
+    Assert-Rejected { . $equipGuardBlock }
+    $GearApply = $false; . $equipGuardBlock
+    $extraGuard = $questAst.Find({ param($node)
+        $node -is [Management.Automation.Language.IfStatementAst] -and $node.Extent.Text.StartsWith('if ($PrepareExtraDps -and ')
+    }, $true)
+    Assert-True ($null -ne $extraGuard) 'Extra DPS guard missing.'
+    $extraGuardBlock = [scriptblock]::Create($extraGuard.Extent.Text)
+    $PrepareExtraDps=$true; $Interactive=$true; $CheckFullParty=$true; $ReuseFullPartyFixture=$true
+    $MixedParty=$true; $ModuleConfig=$true; $RoleFixture=$true; $CheckFactory=$false; $DungeonFixture=$false; $SkipBot=$false; $CheckRosterOnly=$false
+    . $extraGuardBlock
+    $RoleFixture=$false; Assert-Rejected { . $extraGuardBlock }; $RoleFixture=$true
+    $CheckFactory=$true; Assert-Rejected { . $extraGuardBlock }; $CheckFactory=$false
+    $DungeonFixture=$true; Assert-Rejected { . $extraGuardBlock }; $DungeonFixture=$false
+    $ReuseFullPartyFixture=$false; Assert-Rejected { . $extraGuardBlock }; $ReuseFullPartyFixture=$true
+    $SkipBot=$true; Assert-Rejected { . $extraGuardBlock }; $SkipBot=$false
+    $CheckRosterOnly=$true; Assert-Rejected { . $extraGuardBlock }; $CheckRosterOnly=$false
+    $PrepareExtraDps=$false
+    $reuseGuard = $questAst.Find({ param($node)
+        $node -is [Management.Automation.Language.IfStatementAst] -and $node.Extent.Text.StartsWith('if ($ReuseExtraDps -and ')
+    }, $true)
+    Assert-True ($null -ne $reuseGuard) 'Extra DPS replay guard missing.'
+    $reuseGuardBlock = [scriptblock]::Create($reuseGuard.Extent.Text)
+    $ReuseExtraDps=$true; $QuestFixture=$false; $GearApply=$false
+    . $reuseGuardBlock
+    foreach ($required in @('Interactive','CheckFullParty','ReuseFullPartyFixture','MixedParty','ModuleConfig','RoleFixture')) {
+        Set-Variable -Name $required -Value $false
+        Assert-Rejected { . $reuseGuardBlock }
+        Set-Variable -Name $required -Value $true
+    }
+    foreach ($forbidden in @('PrepareExtraDps','CheckFactory','DungeonFixture','QuestFixture','GearApply','SkipBot','CheckRosterOnly')) {
+        Set-Variable -Name $forbidden -Value $true
+        Assert-Rejected { . $reuseGuardBlock }
+        Set-Variable -Name $forbidden -Value $false
+    }
+    $rosterFunction = $questAst.Find({ param($node)
+        $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Get-TestExtraDpsRoster'
+    }, $true)
+    Assert-True ($null -ne $rosterFunction) 'Extra DPS receipt validator missing.'
+    . ([scriptblock]::Create($rosterFunction.Extent.Text))
+    $receiptJson = '{"Characters":[{"Name":"Testrogue","AccountName":"PBEXTRAR","Class":4,"Role":"rogue","Account":6,"Guid":7},{"Name":"Testhunter","AccountName":"PBEXTRAH","Class":3,"Role":"hunter","Account":7,"Guid":8}]}'
+    $extraDpsBots = @(Get-TestExtraDpsRoster ($receiptJson | ConvertFrom-Json))
+    Assert-True ($extraDpsBots.Count -eq 2 -and $extraDpsBots[1].Guid -eq 8) 'Prepared extra DPS receipt was not accepted.'
+    $replayConfig = $questAst.Find({ param($node)
+        $node -is [Management.Automation.Language.IfStatementAst] -and
+        $node.Extent.Text.StartsWith('if ($ReuseExtraDps)') -and
+        $node.Extent.Text.Contains('$bindings =')
+    }, $true)
+    Assert-True ($null -ne $replayConfig) 'Extra DPS replay config block missing.'
+    $humanFields=@('42','3','9','0')
+    $config=" Playerbots.Managed.Characters = 99:99`r`nPlayerbots.Managed.Characters = 88:88`r`nPlayerbots.Factory.Enabled = 1`r`nPlayerbots.Dev.EngineHunterCombat = 0`r`nUnrelated = preserved`r`n"
+    . ([scriptblock]::Create($replayConfig.Extent.Text))
+    foreach ($setting in @('Managed.Enabled','Managed.AllowPlayerControl','Managed.Characters','Managed.AccountLinks','Factory.Enabled','Dev.EngineRogueCombat','Dev.EngineHunterCombat')) {
+        Assert-True ([regex]::Matches($config, '(?m)^Playerbots\.' + [regex]::Escape($setting) + ' = ').Count -eq 1) 'Replay config retained duplicate gates.'
+    }
+    Assert-True ($config.Contains('Playerbots.Managed.Characters = 6:7,7:8')) 'Replay bindings did not use validated identities.'
+    Assert-True ($config.Contains('Playerbots.Managed.AccountLinks = 42:6,42:7')) 'Replay account links did not use the actual human account.'
+    Assert-True ($config.Contains('Playerbots.Factory.Enabled = 0') -and $config.Contains('Unrelated = preserved')) 'Replay config enabled provisioning or changed unrelated settings.'
+    foreach ($badGuid in @('0','-1','4294967296','7; DROP TABLE characters','7.5')) {
+        $badReceipt = $receiptJson | ConvertFrom-Json
+        $badReceipt.Characters[0].Guid = $badGuid
+        Assert-Rejected { Get-TestExtraDpsRoster $badReceipt }
+    }
+    foreach ($field in @('Name','AccountName','Class','Role','Account','Guid')) {
+        $badReceipt = $receiptJson | ConvertFrom-Json
+        $badReceipt.Characters[0].$field = $badReceipt.Characters[1].$field
+        Assert-Rejected { Get-TestExtraDpsRoster $badReceipt }
+    }
+    Assert-Rejected { Get-TestExtraDpsRoster ([pscustomobject]@{ Characters=@() }) }
+    Assert-Rejected { Get-TestExtraDpsRoster ([pscustomobject]@{ Characters=@(($receiptJson | ConvertFrom-Json).Characters[0]) }) }
+    $contextAssignment = $questAst.Find({ param($node)
+        $node -is [Management.Automation.Language.AssignmentStatementAst] -and $node.Left.Extent.Text -eq '$contextIds'
+    }, $true)
+    Assert-True ($null -ne $contextAssignment) 'Context roster assignment missing.'
+    $contextRosterBlock = [scriptblock]::Create($contextAssignment.Extent.Text)
+    $humanGuid=3; $fullPartyBots=@(2,4,5,6 | ForEach-Object { [pscustomobject]@{ Guid=$_ } }); $ContextCapture=$true
+    . $contextRosterBlock
+    Assert-True ($contextIds -eq '3,2,4,5,6,7,8') 'Expanded capture must include all seven actors.'
+    $extraDpsBots=@(); . $contextRosterBlock
+    Assert-True ($contextIds -eq '3,2,4,5,6') 'Original context roster changed.'
+    $ContextCapture=$false; . $contextRosterBlock
+    Assert-True ($contextIds -eq '') 'Disabled capture retained actor IDs.'
+    $ReuseExtraDps=$false
+    $equipFunction = $questAst.Find({ param($node)
+        $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Set-TestEquipConfig'
+    }, $true)
+    Assert-True ($null -ne $equipFunction) 'Pure equip config helper not found.'
+    . ([scriptblock]::Create($equipFunction.Extent.Text))
+    $inheritedEquip = " Playerbots.Equipment.StarterEquip.Enabled = 1`r`nPlayerbots.Equipment.StarterEquip.Enabled = 1`r`n  Playerbots.Equipment.StarterScore.Enabled = 1`r`nUnrelated = preserved`r`n"
+    foreach ($enabled in @($false, $true)) {
+        $normalized = Set-TestEquipConfig $inheritedEquip $enabled $enabled
+        foreach ($gate in @('StarterScore','StarterEquip')) {
+            $rows = [regex]::Matches($normalized, "(?m)^Playerbots\.Equipment\.$gate\.Enabled = ([01])\r?$")
+            Assert-True ($rows.Count -eq 1 -and $rows[0].Groups[1].Value -eq [string][int]$enabled) 'Equip gate normalization failed.'
+        }
+        Assert-True ($normalized.Contains('Unrelated = preserved')) 'Equip config changed unrelated settings.'
+    }
+    Assert-Rejected { Set-TestEquipConfig $inheritedEquip $false $true }
+    $MaintenanceEquip = $false
     foreach ($questEnabled in @($false, $true)) {
         $QuestFixture = $questEnabled
         $QuestAbandon = $false

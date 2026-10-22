@@ -283,11 +283,28 @@ bool WorldSession::RequestPlayerbotRepair(uint32 requesterGuidLow, uint64 npc, u
     return IsServerOrigin() && _playerbotHooks && requesterGuidLow && npc &&
         _playerbotHooks->RequestPlayerbotRepair(requesterGuidLow, npc, map, instance);
 }
+bool WorldSession::RequestPlayerbotPurchase(uint32 requesterGuidLow, uint64 npc, uint32 map, uint32 instance, uint32 item)
+{
+    // Item zero requests bounded food/drink selection at the captured vendor.
+    return IsServerOrigin() && _playerbotHooks && requesterGuidLow && npc &&
+        _playerbotHooks->RequestPlayerbotPurchase(requesterGuidLow, npc, map, instance, item);
+}
 bool WorldSession::RequestPlayerbotQuestCommand(uint32 requesterGuidLow, uint32 quest, uint64 giver, uint32 map, uint32 instance, uint32 operation, uint32 item)
 {
     // The module validates each operation; read-only inspection has no quest/giver.
     return IsServerOrigin() && _playerbotHooks && requesterGuidLow &&
         _playerbotHooks->RequestPlayerbotQuestCommand(requesterGuidLow, quest, giver, map, instance, operation, item);
+}
+bool WorldSession::RequestPlayerbotTrain(uint32 requesterGuidLow, uint64 npc, uint32 map, uint32 instance, uint32 spell)
+{
+    // The module validates spell operands, including inspection/bounded-batch selectors.
+    return IsServerOrigin() && _playerbotHooks && requesterGuidLow && npc &&
+        _playerbotHooks->RequestPlayerbotTrain(requesterGuidLow, npc, map, instance, spell);
+}
+bool WorldSession::RequestPlayerbotSell(uint32 requesterGuidLow, uint64 npc, uint32 map, uint32 instance)
+{
+    return IsServerOrigin() && _playerbotHooks && requesterGuidLow && npc &&
+        _playerbotHooks->RequestPlayerbotSell(requesterGuidLow, npc, map, instance);
 }
 bool WorldSession::RequestPlayerbotStrategy(uint32 requesterGuidLow, std::string const& command,
     std::string const& token, std::string const& target, uint64 batch, PlayerbotStrategyBinding const& binding)

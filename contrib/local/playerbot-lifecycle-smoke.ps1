@@ -7,9 +7,9 @@ param([Parameter(Mandatory)][ValidateNotNullOrEmpty()][string]$Seed,
     [ValidateRange(1024,65535)][int]$ContextDatabasePort = 13306,
     [switch]$CheckFactory, [switch]$CheckManagedClient, [switch]$ReuseManagedClientFixture,
     [ValidatePattern('^[A-Za-z0-9]{3,16}$')][string]$ManagedClientPassword,
-    [switch]$Interactive, [switch]$RecoveryLoot, [switch]$RoleFixture, [switch]$StrategyFixture, [switch]$DungeonFixture,
+    [switch]$Interactive, [switch]$RecoveryLoot, [switch]$RoleFixture, [switch]$StrategyFixture, [switch]$DungeonFixture, [switch]$PrepareExtraDps, [switch]$ReuseExtraDps,
     [switch]$HealerSaveMana, [switch]$GearInspection, [switch]$GearApply, [switch]$LootRolls, [switch]$ControlledLootRoll, [switch]$ContextCapture, [switch]$ContextDiagnostics, [switch]$QuestFixture, [switch]$QuestAbandon,
-    [switch]$CheckRosterOnly, [switch]$ContextActionHistory, [switch]$ContextHistoryProbe,
+    [switch]$CheckRosterOnly, [switch]$ContextActionHistory, [switch]$ContextHistoryProbe, [switch]$Maintenance, [switch]$MaintenanceSell, [switch]$MaintenanceTrain, [switch]$MaintenanceEquip,
     [switch]$CheckNearTeleport,
     [ValidateRange(0, 600)][int]$IdleSeconds = 125,
     [ValidateRange(0, 600)][int]$PostStopSeconds = 0,
@@ -24,6 +24,7 @@ param([Parameter(Mandatory)][ValidateNotNullOrEmpty()][string]$Seed,
 # PB-00/PB-01/PB-02 proofs against a COPY of a disposable, cleanly stopped database.
 # Never use an existing server installation or a live database as the seed.
 $ErrorActionPreference = 'Stop'
+$extraDpsBots = @()
 if (($ReuseManagedClientFixture -or $ManagedClientPassword) -and -not $CheckManagedClient) { throw 'Managed client options require -CheckManagedClient.' }
 if ($CheckManagedClient) {
     if ($CheckFactory -or $SkipBot -or $CheckFullParty -or $CheckCombat -or $CheckTwoBots -or $PrepareClassFixture -or $Interactive -or $CheckClientCollision -or $CheckFollow -or $CheckAdmissionMatrix -or $CheckAdmissionRejects -or $CheckPendingLoad -or $CheckDrainTimeout -or $CheckPersistence -or $CheckDuplicateStart -or $CheckRosterOnly) {
@@ -34,11 +35,23 @@ if ($CheckManagedClient) {
 }
 if ($Interactive -and -not $CheckFullParty) { throw '-Interactive currently requires -CheckFullParty.' }
 if ($MixedParty -and -not $CheckFullParty) { throw '-MixedParty requires -CheckFullParty.' }
+if ($PrepareExtraDps -and (-not $Interactive -or -not $CheckFullParty -or -not $ReuseFullPartyFixture -or -not $MixedParty -or -not $ModuleConfig -or -not $RoleFixture -or $CheckFactory -or $DungeonFixture -or $SkipBot -or $CheckRosterOnly)) {
+    throw '-PrepareExtraDps requires the reused interactive mixed-party/module/role fixture; no factory audit or dungeon mode.'
+}
+if ($ReuseExtraDps -and (-not $Interactive -or -not $CheckFullParty -or -not $ReuseFullPartyFixture -or -not $MixedParty -or -not $ModuleConfig -or -not $RoleFixture -or $PrepareExtraDps -or $CheckFactory -or $DungeonFixture -or $QuestFixture -or $GearApply -or $SkipBot -or $CheckRosterOnly)) {
+    throw '-ReuseExtraDps requires the reused interactive mixed-party/module/role fixture; no provisioning, dungeon, quest or isolated gear-apply mode.'
+}
 if ($RecoveryLoot -and (-not $MixedParty -or -not $Interactive)) { throw '-RecoveryLoot requires the interactive mixed-party scenario.' }
 if ($QuestFixture -and (-not $RecoveryLoot -or -not $CheckFullParty -or -not $ReuseFullPartyFixture -or -not $ModuleConfig)) {
     throw '-QuestFixture requires the reused interactive recovery/mixed-party module fixture.'
 }
 if ($QuestAbandon -and -not $QuestFixture) { throw '-QuestAbandon requires the explicit copied -QuestFixture scenario.' }
+if ($Maintenance -and (-not $ModuleConfig -or -not $Interactive -or -not $CheckFullParty -or -not $ReuseFullPartyFixture -or -not $MixedParty)) {
+    throw '-Maintenance requires the reused interactive full mixed-party module fixture.'
+}
+if ($MaintenanceSell -and -not $Maintenance) { throw '-MaintenanceSell requires the explicit copied -Maintenance fixture.' }
+if ($MaintenanceTrain -and -not $Maintenance) { throw '-MaintenanceTrain requires the explicit copied -Maintenance fixture.' }
+if ($MaintenanceEquip -and (-not $Maintenance -or $GearApply)) { throw '-MaintenanceEquip requires -Maintenance and cannot use the isolated waist-only -GearApply fixture.' }
 if ($HealerSaveMana -and (-not $RecoveryLoot -or -not $ModuleConfig -or -not $EnginePriestHeal)) { throw '-HealerSaveMana requires -RecoveryLoot -ModuleConfig -EnginePriestHeal.' }
 if ($GearInspection -and (-not $CheckFullParty -or -not $Interactive -or -not $MixedParty -or -not $ModuleConfig)) { throw '-GearInspection requires -CheckFullParty -Interactive -MixedParty -ModuleConfig.' }
 if ($GearApply -and (-not $GearInspection -or $DungeonFixture -or $RoleFixture -or $RecoveryLoot)) { throw '-GearApply requires the standalone outdoor -GearInspection fixture.' }
@@ -230,7 +243,70 @@ function Send-WorldCommand([string]$command, [switch]$Sensitive) {
     else { Write-Host "Sent world command: $command" }
 }
 
+function New-TestLoginSecret {
+    return 'Bot' + [Convert]::ToHexString([Security.Cryptography.RandomNumberGenerator]::GetBytes(3))
+}
+function Write-TestLoginFile(
+    [ValidatePattern('^[A-Z0-9]{3,16}$')][string]$Account,
+    [ValidatePattern('^[A-Za-z0-9]{3,16}$')][string]$Secret,
+    [string]$Instructions) {
+    # The copied evidence directory inherits the private seed ACL and is ignored.
+    [IO.File]::WriteAllText((Join-Path $stage 'test-login.txt'),
+        "Disposable local realm only`r`nAccount: $Account`r`nPassword: $Secret`r`n$Instructions`r`n",
+        [Text.UTF8Encoding]::new($false))
+    Write-Host "Private login and instructions: $stage/test-login.txt"
+}
+function Reset-TestHumanLogin {
+    # Reset only the dedicated offline account in the copied DB, never the seed.
+    $before = Invoke-TestSql "SELECT HEX(salt) FROM auth.account WHERE username='PB01HUMAN' AND online=0;"
+    if ($before -notmatch '^[0-9A-Fa-f]{64}$') { throw 'Expected the offline disposable human account before credential reset.' }
+    $secret = New-TestLoginSecret
+    Send-WorldCommand "account set password PB01HUMAN $secret $secret" -Sensitive
+    Wait-For { (Invoke-TestSql "SELECT COUNT(*) FROM auth.account WHERE username='PB01HUMAN' AND online=0 AND HEX(salt)<>'$before';") -eq '1' } 30 'native copied-account credential reset'
+    Write-TestLoginFile 'PB01HUMAN' $secret 'Log into the disposable Test realm only; use the character requested by the current fixture.'
+}
+function Set-TestEquipConfig([string]$text, [bool]$Score, [bool]$Equip) {
+    if ($Equip -and -not $Score) { throw 'Explicit equip requires the qualified-score gate.' }
+    $text = [regex]::Replace($text, '(?m)^[ \t]*Playerbots\.Equipment\.(StarterScore|StarterEquip)\.Enabled\s*=.*\r?\n?', '')
+    return $text + "`r`nPlayerbots.Equipment.StarterScore.Enabled = $([int]$Score)`r`nPlayerbots.Equipment.StarterEquip.Enabled = $([int]$Equip)`r`n"
+}
+function Get-TestExtraDpsRoster($manifest) {
+    # A private preparation receipt is an identity hint, never authority by itself.
+    # Return only fixed names/roles and validated numeric IDs for later SQL checks.
+    $rows = @($manifest.Characters)
+    if ($rows.Count -ne 2) { throw 'Expected exactly two prepared extra DPS identities.' }
+    $expected = @(
+        @{ Name='Testrogue'; AccountName='PBEXTRAR'; Class=4; Role='rogue' },
+        @{ Name='Testhunter'; AccountName='PBEXTRAH'; Class=3; Role='hunter' })
+    $result = foreach ($identity in $expected) {
+        $matches = @($rows | Where-Object { $_.Name -ceq $identity.Name })
+        if ($matches.Count -ne 1) { throw 'Missing or duplicate prepared extra DPS identity.' }
+        $row = $matches[0]
+        if ($row.AccountName -cne $identity.AccountName -or $row.Role -cne $identity.Role -or
+            [string]$row.Class -cne [string]$identity.Class) { throw 'Prepared extra DPS identity does not match its dedicated fixture role.' }
+        foreach ($field in @('Account','Guid')) {
+            $value = [string]$row.$field
+            if ($value -notmatch '^[1-9][0-9]{0,9}$' -or [uint64]$value -gt [uint32]::MaxValue) { throw 'Invalid prepared extra DPS numeric identity.' }
+        }
+        [pscustomobject]@{ Name=$identity.Name; AccountName=$identity.AccountName; Class=$identity.Class; Role=$identity.Role; Account=[uint32]$row.Account; Guid=[uint32]$row.Guid }
+    }
+    if ($result[0].Guid -eq $result[1].Guid -or $result[0].Account -eq $result[1].Account) { throw 'Prepared extra DPS identities must be distinct.' }
+    return $result
+}
+function Wait-ExtraDpsOnline($bot) {
+    $pattern = 'Playerbot ' + [regex]::Escape($bot.Name) + ' \(GUID ' + $bot.Guid + ', account ' + $bot.Account + ',[^\r\n]*\): online\.'
+    Wait-For {
+        $before = @(Select-String -LiteralPath $worldOutput -Pattern $pattern).Count
+        Send-WorldCommand 'server playerbotdev managed list'
+        Start-Sleep -Milliseconds 250
+        @(Select-String -LiteralPath $worldOutput -Pattern $pattern).Count -gt $before
+    } 90 "managed $($bot.Name) completed world login"
+}
 function Write-TestWorldConfig([string]$text) {
+    $text = Set-TestEquipConfig $text ([bool]($GearInspection -or $LootRolls -or $MaintenanceEquip)) ([bool]($GearApply -or $MaintenanceEquip))
+    # Reset inherited maintenance gates; enable only in this explicit copied fixture.
+    $text = [regex]::Replace($text, '(?m)^[ \t]*Playerbots\.Maintenance\.(Repair|Buy|Sell|Train)\.Enabled\s*=.*\r?\n?', '')
+    $text += "`r`nPlayerbots.Maintenance.Repair.Enabled = $([int][bool]$Maintenance)`r`nPlayerbots.Maintenance.Buy.Enabled = $([int][bool]$Maintenance)`r`nPlayerbots.Maintenance.Sell.Enabled = $([int][bool]$MaintenanceSell)`r`nPlayerbots.Maintenance.Train.Enabled = $([int][bool]$MaintenanceTrain)`r`n"
     $text = [regex]::Replace($text, '(?m)^[ \t]*Playerbots\.Diagnostics\.Actions\.Enabled\s*=.*\r?\n?', '')
     $text += "`r`nPlayerbots.Diagnostics.Actions.Enabled = $([int][bool]$ContextActionHistory)`r`n"
     # Do not inherit enabled quest mutation gates from an earlier copied seed.
@@ -244,7 +320,7 @@ function Write-TestWorldConfig([string]$text) {
         $text = [regex]::Replace($text, '(?m)^Modules\.ConfigDirectory\s*=.*\r?\n?', '')
         $text += "`r`nModules.ConfigDirectory = modules`r`n"
         [IO.File]::WriteAllText((Join-Path $moduleDirectory 'playerbots.conf'), "[playerbots]`r`n" + ($botLines -join "`r`n") + "`r`n", [Text.UTF8Encoding]::new($false))
-        $contextIds = if ($ContextCapture) { (@($humanGuid) + @($fullPartyBots.Guid)) -join ',' } else { '' }
+        $contextIds = if ($ContextCapture) { (@($humanGuid) + @($fullPartyBots.Guid) + @($extraDpsBots | ForEach-Object Guid)) -join ',' } else { '' }
         $contextConfig = "[context-api]`r`nContextAPI.Enabled = $([int][bool]$ContextCapture)`r`nContextAPI.Characters = `"$contextIds`"`r`nContextAPI.SnapshotFile = `"context-api/snapshot.json`"`r`nContextAPI.IntervalMs = 1000`r`nContextAPI.DiagnosticDetails = $([int][bool]$ContextDiagnostics)`r`nContextAPI.ActionHistory = $([int][bool]$ContextActionHistory)`r`n"
         [IO.File]::WriteAllText((Join-Path $moduleDirectory 'context-api.conf'), $contextConfig, [Text.UTF8Encoding]::new($false))
     }
@@ -390,11 +466,25 @@ try {
         $humanFields = $human -split "`t"
         if ($humanFields.Count -ne 4 -or $humanFields[3] -ne '0') { throw "Full-party fixture needs an offline human character named Test; found: $human" }
         $humanGuid = [uint32]$humanFields[1]
+        if ($ReuseExtraDps) {
+            $manifestPath = Join-Path $seedPath 'extra-dps-preparation.json'
+            Assert-TestFiles $seedPath @('extra-dps-preparation.json') 'Extra DPS seed'
+            if ((Get-Item -LiteralPath $manifestPath).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Extra DPS receipt must not be a link.' }
+            $extraDpsBots = @(Get-TestExtraDpsRoster (Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json))
+            foreach ($extraBot in $extraDpsBots) {
+                $tree = if ($extraBot.Class -eq 4) {181} else {807}
+                $identityCount = Invoke-TestSql "SELECT COUNT(*) FROM characters.characters c JOIN auth.account a ON a.id=c.account JOIN auth.playerbots_factory_ownership f ON f.account_id=a.id WHERE c.guid=$($extraBot.Guid) AND c.account=$($extraBot.Account) AND c.name='$($extraBot.Name)' AND a.username='$($extraBot.AccountName)' AND f.account_name=a.username AND f.account_join_epoch=UNIX_TIMESTAMP(a.joindate) AND f.character_name=c.name AND f.race=c.race AND f.class=c.class AND f.gender=c.gender AND c.class=$($extraBot.Class) AND c.race=10 AND c.gender=0 AND c.level=20 AND c.talentTree LIKE '$tree %' AND c.online=0;"
+                if ($identityCount -ne '1') { throw 'Extra DPS saved identity/spec or native enrollment does not match the preparation receipt.' }
+            }
+            Copy-Item -LiteralPath $manifestPath -Destination (Join-Path $stage 'extra-dps-preparation.json')
+        }
         if (($RecoveryLoot -or $RoleFixture -or $GearInspection -or $ContextHistoryProbe) -and $ReuseFullPartyFixture) {
             # The copied database may retain the previous test party. Normalize
-            # only groups wholly owned by these five offline fixture characters.
-            $fixtureRows = @((Invoke-TestSql "SELECT guid FROM characters.characters WHERE name IN ('Test','Testone','Testtwo','Botmage','Botpriest') AND online=0;") -split "`r?`n")
-            if ($fixtureRows.Count -ne 5 -or @($fixtureRows | Where-Object { $_ -notmatch '^\d+$' }).Count) { throw 'Recovery fixture requires exactly five offline test characters.' }
+            # only groups wholly owned by these offline fixture characters.
+            $fixtureNames = "'Test','Testone','Testtwo','Botmage','Botpriest'"
+            if ($ReuseExtraDps) { $fixtureNames += ",'Testrogue','Testhunter'" }
+            $fixtureRows = @((Invoke-TestSql "SELECT guid FROM characters.characters WHERE name IN ($fixtureNames) AND online=0;") -split "`r?`n")
+            if ($fixtureRows.Count -ne (5 + $extraDpsBots.Count) -or @($fixtureRows | Where-Object { $_ -notmatch '^\d+$' }).Count) { throw 'Recovery fixture requires its complete offline roster.' }
             $fixtureIds = $fixtureRows -join ','
             $groupRows = (Invoke-TestSql "SELECT DISTINCT guid FROM characters.group_member WHERE memberGuid IN ($fixtureIds);") -split "`r?`n"
             foreach ($groupId in $groupRows) {
@@ -464,7 +554,9 @@ try {
                 (Invoke-TestSql "SELECT COUNT(*) FROM auth.account a JOIN characters.characters c ON c.account=a.id WHERE a.username='PB01BOT2' AND c.name='Testtwo' AND c.class=1 AND c.online=0;") -eq '1'
             if (-not $ReuseFullPartyFixture -and -not $reuseSecond) {
                 if ((Invoke-TestSql "SELECT COUNT(*) FROM auth.account WHERE username='$botAccountName';") -ne '0') { throw "Disposable bot account $botAccountName already exists." }
-                Send-WorldCommand "account create $botAccountName PB01local!"
+                $botSecret = New-TestLoginSecret
+                Send-WorldCommand "account create $botAccountName $botSecret" -Sensitive
+                $botSecret = $null
                 Wait-For { (Invoke-TestSql "SELECT COUNT(*) FROM auth.account WHERE username='$botAccountName';") -eq '1' } 30 "bot account $slot creation"
                 $dumpName = if ($MixedParty -and $slot -eq 3) { 'mage-template.dump' } elseif ($MixedParty -and $slot -eq 4) { 'priest-template.dump' } else { 'bot-template.dump' }
                 Send-WorldCommand "pdump load $dumpName $botAccountName $botName"
@@ -600,6 +692,14 @@ try {
         $config = [regex]::Replace($config, '(?m)^Playerbots\.Dev\.LootRollFixture\.Enabled\s*=.*\r?\n?', '')
         $config += "Playerbots.Dev.LootRollFixture.Enabled = $([int][bool]$ControlledLootRoll)`r`n"
     }
+    if ($ReuseExtraDps) {
+        foreach ($setting in @('Managed.Enabled','Managed.AllowPlayerControl','Managed.Characters','Managed.AccountLinks','Factory.Enabled','Dev.EngineRogueCombat','Dev.EngineHunterCombat')) {
+            $config = [regex]::Replace($config, '(?m)^[ \t]*Playerbots\.' + [regex]::Escape($setting) + '\s*=.*\r?\n?', '')
+        }
+        $bindings = ($extraDpsBots | ForEach-Object { "$($_.Account):$($_.Guid)" }) -join ','
+        $links = ($extraDpsBots | ForEach-Object { "$($humanFields[0]):$($_.Account)" }) -join ','
+        $config += "`r`nPlayerbots.Managed.Enabled = 1`r`nPlayerbots.Managed.AllowPlayerControl = 1`r`nPlayerbots.Managed.Characters = $bindings`r`nPlayerbots.Managed.AccountLinks = $links`r`nPlayerbots.Factory.Enabled = 0`r`nPlayerbots.Dev.EngineRogueCombat = 1`r`nPlayerbots.Dev.EngineHunterCombat = 1`r`n"
+    }
     Write-TestWorldConfig $config
 
     $worldWorker = Start-Worker (Join-Path $stage 'worldserver.exe') @('-c','worldserver.conf') 'world'
@@ -716,7 +816,8 @@ try {
     }
     if ($PrepareClassFixture) {
         if ((Invoke-TestSql "SELECT COUNT(*) FROM auth.account WHERE username='PB01HUMAN';") -ne '1') { throw 'Class preparation requires the disposable PB01HUMAN account.' }
-        Write-Host 'CLASS FIXTURE READY: log into the isolated Cata realm as PB01HUMAN / PB01local!.'
+        Reset-TestHumanLogin
+        Write-Host 'CLASS FIXTURE READY: use the private login file for the isolated Cata realm.'
         Write-Host 'Create a Blood Elf Mage named Testmage and a Blood Elf Priest named Testpriest, then log out of both. Do not use a live realm.'
         Wait-For { (Invoke-TestSql "SELECT COUNT(*) FROM characters.characters c JOIN auth.account a ON a.id=c.account WHERE a.username='PB01HUMAN' AND c.name='Testmage' AND c.class=8 AND c.online=0;") -eq '1' } 600 'saved offline Mage Testmage'
         Wait-For { (Invoke-TestSql "SELECT COUNT(*) FROM characters.characters c JOIN auth.account a ON a.id=c.account WHERE a.username='PB01HUMAN' AND c.name='Testpriest' AND c.class=5 AND c.online=0;") -eq '1' } 600 'saved offline Priest Testpriest'
@@ -727,7 +828,6 @@ try {
     }
     if ($CheckCombat) {
         $humanAccount = 'PB01HUMAN'
-        $humanPassword = 'PB01local!'
         if ((Invoke-TestSql "SELECT COUNT(*) FROM auth.account WHERE username='$humanAccount';") -ne '1') { throw 'Combat seed needs the disposable human account from the successful follow check.' }
         $existingHuman = Invoke-TestSql "SELECT c.guid, c.online FROM characters.characters c JOIN auth.account a ON a.id=c.account WHERE a.username='$humanAccount' AND c.name='Test' LIMIT 1;"
         $humanFields = $existingHuman -split "`t"
@@ -735,7 +835,8 @@ try {
         $humanGuid = [uint32]$humanFields[0]
         Send-WorldCommand 'server playerbotdev start'
         Wait-For { (Invoke-TestSql "SELECT online FROM characters.characters WHERE guid=$characterGuid;") -eq '1' } 90 'bot in world'
-        Write-Host "COMBAT READY: log into the existing character Test as $humanAccount / $humanPassword."
+        Reset-TestHumanLogin
+        Write-Host 'COMBAT READY: use the private login file and log into the existing character Test.'
         Wait-For { (Invoke-TestSql "SELECT online, map FROM characters.characters WHERE guid=$humanGuid;") -eq "1$([char]9)530" } 600 'human character in world on map 530'
         Send-WorldCommand "server playerbotdev follow $humanGuid"
         Wait-For { (Select-String -LiteralPath $serverLog -SimpleMatch 'PB-01: Testone following Test' -Quiet) } 20 'follow accepted before combat'
@@ -839,14 +940,16 @@ try {
     }
     if ($CheckFollow) {
         $humanAccount = 'PB01HUMAN'
-        $humanPassword = 'PB01local!'
+        $humanPassword = New-TestLoginSecret
         if ((Invoke-TestSql "SELECT COUNT(*) FROM auth.account WHERE username='$humanAccount';") -ne '0') { throw 'Disposable human account already exists in seed.' }
-        Send-WorldCommand "account create $humanAccount $humanPassword"
+        Send-WorldCommand "account create $humanAccount $humanPassword" -Sensitive
         Wait-For { (Invoke-TestSql "SELECT COUNT(*) FROM auth.account WHERE username='$humanAccount';") -eq '1' } 20 'disposable human account creation'
         [void](Invoke-TestSql "UPDATE auth.account SET expansion=3 WHERE username='$humanAccount';")
         Send-WorldCommand 'server playerbotdev start'
         Wait-For { (Invoke-TestSql "SELECT online FROM characters.characters WHERE guid=$characterGuid;") -eq '1' } 90 'bot in world'
-        Write-Host "FOLLOW READY: log into the Cata client as $humanAccount / $humanPassword, create a Blood Elf character, and enter the world."
+        Write-TestLoginFile $humanAccount $humanPassword 'Create a Blood Elf character and enter the world.'
+        $humanPassword = $null
+        Write-Host 'FOLLOW READY: use the private login file, create a Blood Elf character, and enter the world.'
         $script:humanGuid = 0
         Wait-For {
             $human = Invoke-TestSql "SELECT c.guid FROM characters.characters c JOIN auth.account a ON a.id=c.account WHERE a.username='$humanAccount' AND c.online=1 AND c.map=530 LIMIT 1;"
@@ -992,7 +1095,13 @@ try {
             do {
                 if (Select-String -LiteralPath $serverLog -SimpleMatch $timeoutMessage -Quiet) { break }
                 if ($worldWorker.Process.HasExited) { throw 'Worldserver exited without logging the PB-00 drain timeout.' }
-                Start-Sleep -Milliseconds 500
+                $onlinePattern = "Playerbot $($extraBot.Name) \(GUID $($extraBot.Guid), account $($extraBot.Account),.*\): online\."
+                Wait-For {
+                    $before = @(Select-String -LiteralPath $worldOutput -Pattern $onlinePattern).Count
+                    Send-WorldCommand 'server playerbotdev managed list'
+                    Start-Sleep -Milliseconds 250
+                    @(Select-String -LiteralPath $worldOutput -Pattern $onlinePattern).Count -gt $before
+                } 30 'native managed login completion receipt'
             } while ((Get-Date) -lt $deadline)
             if (-not (Select-String -LiteralPath $serverLog -SimpleMatch $timeoutMessage -Quiet)) { throw 'PB-00 drain timeout was not logged within 45 seconds.' }
             Write-Host 'PB-00 30-second drain timeout logged while the character query remained locked.'
@@ -1078,6 +1187,13 @@ try {
             @{ Identity = $gearBeforeIdentity; Mapping = $gearBeforeMapping; Candidate = $gearCandidate } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $stage 'gear-before.json') -Encoding UTF8
         }
         # Stage meaningful party checks away from the level-one homebind, including
+        if ($MaintenanceEquip) {
+            $maintenanceOwners = ($fullPartyBots.Guid -join ',')
+            $maintenanceItemsSql = "SELECT * FROM characters.item_instance WHERE owner_guid IN ($maintenanceOwners) ORDER BY owner_guid,guid;"
+            $maintenanceMappingSql = "SELECT guid,item,bag,slot FROM characters.character_inventory WHERE guid IN ($maintenanceOwners) ORDER BY guid,item;"
+            @{ Items = (Invoke-TestSql $maintenanceItemsSql); Mapping = (Invoke-TestSql $maintenanceMappingSql) } |
+                ConvertTo-Json | Set-Content -LiteralPath (Join-Path $stage 'maintenance-inventory-before.json') -Encoding UTF8
+        }
         # dungeon checks before the human enters the portal. Keep everyone on map 530.
         $stageAtTranquillien = $RecoveryLoot -or $RoleFixture -or $GearInspection -or $ContextCapture
         if ($stageAtTranquillien) {
@@ -1204,9 +1320,95 @@ try {
             Write-Host 'Four-bot roster readiness, outdoor fixture normalization, save/logout and shutdown passed. No client gameplay was tested.'
             return
         }
-        Write-Host 'FULL PARTY READY: log into Test on the disposable Test realm using its fixture account credentials.'
+        if ($ReuseExtraDps) {
+            foreach ($extraBot in $extraDpsBots) {
+                Send-WorldCommand "tele name $($extraBot.Name) Tranquillien"
+                Wait-For {
+                    (Invoke-TestSql "SELECT COUNT(*) FROM characters.characters c JOIN world.game_tele t ON t.name='Tranquillien' WHERE c.guid=$($extraBot.Guid) AND c.online=0 AND c.map=t.map AND c.instance_id=0 AND ABS(c.position_x-t.position_x)<1 AND ABS(c.position_y-t.position_y)<1 AND ABS(c.position_z-t.position_z)<1;") -eq '1'
+                } 30 "offline $($extraBot.Name) staging"
+                Send-WorldCommand "server playerbotdev managed start $($extraBot.Guid)"
+                Wait-ExtraDpsOnline $extraBot
+            }
+        }
+        if ($PrepareExtraDps) { Write-Host 'HEADLESS PREPARATION: do not log in; extra characters will be provisioned, saved and stopped.' }
+        else {
+            Reset-TestHumanLogin
+            Write-Host 'FULL PARTY READY: log into Test on the disposable Test realm using the private test-login.txt file.'
+        }
         if ($QuestFixture) { Write-Host 'QUEST FIXTURE: ordinary sharing, accept <quest ID> and reward <quest ID> <item ID> enabled in this copy only. Use a real offered quest near Tranquillien; no forced completion or log edits. Native completion/persistence are separate from queued replies.' }
-        if ($ContextCapture) { Write-Host "CONTEXT CAPTURE: five configured characters; read-only snapshot at $stage/context-api/snapshot.json. Compare live identity, health/resources, combat, map/instance and bot engine state with the client." }
+        if ($ContextCapture) { Write-Host "CONTEXT CAPTURE: $(1 + $fullPartyBots.Count + $extraDpsBots.Count) configured characters; read-only snapshot at $stage/context-api/snapshot.json. Compare live identity, health/resources, combat, map/instance and bot engine state with the client." }
+        if ($PrepareExtraDps) {
+            # One-time native preparation in this disposable copy only. Existing
+            # identities are never adopted by prefix or repaired by SQL.
+            $extras = @(
+                [pscustomobject]@{ AccountName='PBEXTRAR'; Name='Testrogue'; Class=4; Role='rogue' },
+                [pscustomobject]@{ AccountName='PBEXTRAH'; Name='Testhunter'; Class=3; Role='hunter' })
+            if ((Invoke-TestSql "SELECT COUNT(*) FROM auth.account WHERE username IN ('PBEXTRAR','PBEXTRAH');") -ne '0' -or
+                (Invoke-TestSql "SELECT COUNT(*) FROM characters.characters WHERE name IN ('Testrogue','Testhunter');") -ne '0') {
+                throw 'Extra DPS preparation requires a fresh stopped seed without these dedicated identities.'
+            }
+            [void](Invoke-TestSql ('USE auth;' + [IO.File]::ReadAllText((Join-Path $repo 'modules/mod-playerbots/sql/auth/001_factory_ownership.sql'))))
+            foreach ($setting in @('Factory.Enabled','Factory.InspectionEnabled','Managed.Enabled','Managed.AllowPlayerControl','Dev.EngineRogueCombat','Dev.EngineHunterCombat')) {
+                $config = [regex]::Replace($config, '(?m)^[ \t]*Playerbots\.' + [regex]::Escape($setting) + '\s*=.*\r?\n?', '')
+                $config += "`r`nPlayerbots.$setting = 1`r`n"
+            }
+            Write-TestWorldConfig $config
+            Send-WorldCommand 'reload config'
+            $worldOutput = Join-Path $stage 'world.stdout.log'
+            foreach ($extraBot in $extras) {
+                $secret = [Convert]::ToHexString([Security.Cryptography.RandomNumberGenerator]::GetBytes(8))
+                Send-WorldCommand "account create $($extraBot.AccountName) $secret" -Sensitive
+                $secret = $null
+                $accountName = $extraBot.AccountName
+                Wait-For { (Invoke-TestSql "SELECT COUNT(*) FROM auth.account WHERE username='$accountName';") -eq '1' } 30 'native extra DPS account creation'
+                $extraAccount = [uint32](Invoke-TestSql "SELECT id FROM auth.account WHERE username='$accountName';")
+                Send-WorldCommand "account set addon $accountName 3"
+                Wait-For { (Invoke-TestSql "SELECT expansion FROM auth.account WHERE id=$extraAccount;") -eq '3' } 30 'native account expansion setting'
+                Send-WorldCommand "server playerbotdev managed enroll $extraAccount $($extraBot.Name) 10 $($extraBot.Class) 0"
+                $extraName = $extraBot.Name
+                Wait-For { (Invoke-TestSql "SELECT COUNT(*) FROM auth.playerbots_factory_ownership WHERE account_id=$extraAccount AND character_name='$extraName' AND class=$($extraBot.Class);") -eq '1' } 30 'native enrollment commit'
+                Send-WorldCommand "server playerbotdev managed provision $extraAccount"
+                Wait-For { (Invoke-TestSql "SELECT COUNT(*) FROM characters.characters WHERE account=$extraAccount AND name='$extraName' AND race=10 AND class=$($extraBot.Class) AND online=0;") -eq '1' } 60 'native extra DPS character creation'
+                $extraBot | Add-Member Account $extraAccount
+                $extraBot | Add-Member Guid ([uint32](Invoke-TestSql "SELECT guid FROM characters.characters WHERE account=$extraAccount AND name='$extraName';"))
+                Send-WorldCommand "character level $extraName 20"
+                Send-WorldCommand "tele name $extraName Tranquillien"
+                Wait-For { (Invoke-TestSql "SELECT COUNT(*) FROM characters.characters WHERE guid=$($extraBot.Guid) AND online=0 AND level=20 AND map=530 AND instance_id=0;") -eq '1' } 30 'native offline level/location preparation'
+            }
+            $humanAccount = [uint32](Invoke-TestSql "SELECT account FROM characters.characters WHERE guid=$humanGuid;")
+            $bindings = ($extras | ForEach-Object { "$($_.Account):$($_.Guid)" }) -join ','
+            $links = ($extras | ForEach-Object { "${humanAccount}:$($_.Account)" }) -join ','
+            foreach ($setting in @('Managed.Characters','Managed.AccountLinks','Factory.Enabled')) {
+                $config = [regex]::Replace($config, '(?m)^[ \t]*Playerbots\.' + [regex]::Escape($setting) + '\s*=.*\r?\n?', '')
+            }
+            $config += "`r`nPlayerbots.Managed.Characters = $bindings`r`nPlayerbots.Managed.AccountLinks = $links`r`nPlayerbots.Factory.Enabled = 0`r`n"
+            Write-TestWorldConfig $config
+            Send-WorldCommand 'reload config'
+            foreach ($extraBot in $extras) {
+                Send-WorldCommand "server playerbotdev managed start $($extraBot.Guid)"
+                Wait-For { (Invoke-TestSql "SELECT online FROM characters.characters WHERE guid=$($extraBot.Guid);") -eq '1' } 90 'extra managed bot login'
+                Wait-ExtraDpsOnline $extraBot
+                Send-WorldCommand "server playerbotdev managed fixture20 $($extraBot.Guid) $($extraBot.Role)"
+                $fixtureName = $extraBot.Name
+                Wait-For {
+                    if (Select-String -LiteralPath $serverLog -Pattern "PB-FIXTURE: $fixtureName (incomplete|rejected)" -Quiet) { throw "Extra fixture $fixtureName rejected or incomplete." }
+                    Select-String -LiteralPath $serverLog -SimpleMatch "PB-FIXTURE: $fixtureName prepared;" -Quiet
+                } 30 'extra native role preparation'
+                Send-WorldCommand "server playerbotdev managed stop $($extraBot.Guid)"
+                Wait-For { (Invoke-TestSql "SELECT online FROM characters.characters WHERE guid=$($extraBot.Guid);") -eq '0' } 60 'extra native save/logout'
+                if ((Invoke-TestSql "SELECT COUNT(*) FROM characters.characters WHERE guid=$($extraBot.Guid) AND level=20 AND talentTree LIKE '$(if ($extraBot.Class -eq 4) {181} else {807}) %';") -ne '1') { throw 'Extra native talent persistence not confirmed.' }
+            }
+            foreach ($bot in $fullPartyBots) { Send-WorldCommand "server playerbotdev slot $($bot.Slot) stop" }
+            foreach ($bot in $fullPartyBots) { Wait-For { (Invoke-TestSql "SELECT online FROM characters.characters WHERE guid=$($bot.Guid);") -eq '0' } 60 'base party save/logout' }
+            $hunter = $extras | Where-Object Class -eq 3
+            $petCount = [uint32](Invoke-TestSql "SELECT COUNT(*) FROM characters.character_pet WHERE owner=$($hunter.Guid);")
+            [pscustomobject]@{ Characters=$extras; HunterSavedPetCount=$petCount; GameplayTested=$false } |
+                ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $stage 'extra-dps-preparation.json') -Encoding UTF8
+            Send-WorldCommand 'server shutdown 0'
+            if (-not $worldWorker.Process.WaitForExit(60000) -or $worldWorker.Process.ExitCode -ne 0) { throw 'Extra preparation world shutdown failed.' }
+            Write-Host "Extra DPS saved; Hunter saved pet rows: $petCount. No gameplay or pet creation claimed. Copy preserved at $stage."
+            return
+        }
         if ($Interactive) { Write-Host "INTERACTIVE: human steps have no deadline. Log out when finished; to stop at any step create $stage/stop.request." }
         Wait-ForHuman { (Invoke-TestSql "SELECT online, map FROM characters.characters WHERE guid=$humanGuid;") -eq "1$([char]9)530" } 600 'human Test on outdoor map 530'
         if (-not $MixedParty) {
@@ -1216,7 +1418,8 @@ try {
                 Wait-For { (Select-String -LiteralPath $serverLog -SimpleMatch $followLine -Quiet) } 20 "bot slot $($bot.Slot) following Test"
             }
         }
-        if ($RoleFixture) { Write-Host "Role equipment and consumables are ready. Invite $($fullPartyBots.Name -join ', '); use the fixed durable enemies in doc/local/playerbots/PLAYERBOTS_PARTY_FIXTURE.md." }
+        if ($ReuseExtraDps) { Write-Host "OUTDOOR RAID: invite $($fullPartyBots.Name -join ', '), convert to raid, then invite $($extraDpsBots.Name -join ', '). Confirm shared map/phase and actual arrival before pulling. Stay outdoors; use individual whispers across subgroups." }
+        elseif ($RoleFixture) { Write-Host "Role equipment and consumables are ready. Invite $($fullPartyBots.Name -join ', '); use the fixed durable enemies in doc/local/playerbots/PLAYERBOTS_PARTY_FIXTURE.md." }
         elseif ($GearInspection -and -not $DungeonFixture) { Write-Host "Invite $($fullPartyBots.Name -join ', ') and whisper gear? while safely idle. No teleport, combat or equipment change is required." }
         elseif ($RecoveryLoot -and -not $DungeonFixture) { Write-Host "Invite $($fullPartyBots.Name -join ', ') to your party. Stay outdoors; provision food/water and the Mage armor spell as described in doc/local/playerbots/NEXT_MIXED_PARTY_TEST.md." }
         else { Write-Host "Invite $($fullPartyBots.Name -join ', ') to your party. Then use .tele RagefireChasm and walk through the portal." }
@@ -1224,7 +1427,11 @@ try {
             $joinLine = "PB-PARTY: $($bot.Name) joined followed leader"
             Wait-ForHuman { (Select-String -LiteralPath $serverLog -SimpleMatch $joinLine -Quiet) } 240 "bot slot $($bot.Slot) party join"
         }
-        if ($DungeonFixture -or (-not $RecoveryLoot -and -not $GearInspection)) {
+        foreach ($extraBot in $extraDpsBots) {
+            $joinLine = "PB-PARTY: $($extraBot.Name) joined followed leader"
+            Wait-ForHuman { (Select-String -LiteralPath $serverLog -SimpleMatch $joinLine -Quiet) } 240 "$($extraBot.Name) raid join"
+        }
+        if (-not $ReuseExtraDps -and ($DungeonFixture -or (-not $RecoveryLoot -and -not $GearInspection))) {
             Write-Host 'PARTY ASSEMBLED: use .tele RagefireChasm, then walk through the portal. The harness will request bot entry; do not use cross-map .summon.'
             $partyInstanceQuery = "SELECT DISTINCT i.id FROM characters.group_member gm JOIN characters.group_instance gi ON gi.guid=gm.guid JOIN characters.instance i ON i.id=gi.instance WHERE gm.memberGuid=$humanGuid AND i.map=389;"
             Wait-ForHuman { (Invoke-TestSql $partyInstanceQuery) -match '^\d+$' } 300 'human party bound to Ragefire Chasm'
@@ -1238,7 +1445,8 @@ try {
             Write-Host "DUNGEON PARTY READY: all four bots completed entry into Ragefire instance $partyInstance. Use .gm off before normal pulls."
         }
         if ($MixedParty) {
-            if ($GearApply) { Write-Host 'GEAR APPLY READY: whisper Testone gear?, then gear apply once. Wait for confirmed completion and query gear? again. Do not change other items or engage combat. Log out when finished.' }
+            if ($ReuseExtraDps) { Write-Host 'OUTDOOR RAID ASSEMBLED: check durable pulls, Rogue melee, Hunter ranged/pet attack and return, shared control and recovery together. Group membership alone does not prove arrival, phase or combat.' }
+            elseif ($GearApply) { Write-Host 'GEAR APPLY READY: whisper Testone gear?, then gear apply once. Wait for confirmed completion and query gear? again. Do not change other items or engage combat. Log out when finished.' }
             elseif ($GearInspection -and -not $DungeonFixture) { Write-Host 'GEAR INSPECTION READY: whisper gear? or use party gear?. Reports are read-only; inventory must remain unchanged. Log out when finished.' }
             elseif ($RecoveryLoot -and -not $DungeonFixture) { Write-Host 'RECOVERY/LOOT PARTY READY: outdoor pulls are sufficient. Observe native loot and carried food/drink; armor requires a learned eligible spell. Log out when finished.' }
             else { Write-Host 'MIXED PARTY IN DUNGEON: make a few normal pulls; observe Warrior threat, Mage damage and Priest healing.' }
@@ -1272,6 +1480,10 @@ try {
             Write-Host 'DEATH RECORDED: note what happened in game, then log out of Test to finish.'
             Wait-For { (Invoke-TestSql "SELECT online FROM characters.characters WHERE guid=$humanGuid;") -eq '0' } 180 'human logout after death observation'
         }
+        foreach ($extraBot in $extraDpsBots) { Send-WorldCommand "server playerbotdev managed stop $($extraBot.Guid)" }
+        foreach ($extraBot in $extraDpsBots) {
+            Wait-For { (Invoke-TestSql "SELECT online FROM characters.characters WHERE guid=$($extraBot.Guid);") -eq '0' } 60 "$($extraBot.Name) save/logout"
+        }
         foreach ($bot in $fullPartyBots) { Send-WorldCommand "server playerbotdev slot $($bot.Slot) stop" }
         foreach ($bot in $fullPartyBots) {
             $botGuid = $bot.Guid
@@ -1279,11 +1491,17 @@ try {
         }
         if ($ControlledLootRoll) {
             $need = Select-String -LiteralPath $worldOutput -SimpleMatch 'PB-ROLL: Testone submitted native vote 1 for item 2866 ' -Quiet
+            # Controlled-roll acceptance remains separate from maintenance inventory inspection.
             $greed = Select-String -LiteralPath $worldOutput -SimpleMatch 'PB-ROLL: Testtwo submitted native vote 2 for item 2866 ' -Quiet
             $controlledAfterStock = [uint32](Invoke-TestSql "SELECT COALESCE(SUM(count),0) FROM characters.item_instance WHERE owner_guid=$characterGuid AND itemEntry=2866;")
             $award = $controlledAfterStock -eq ($controlledBeforeStock + 1)
             @{ Need=$need; Greed=$greed; Before=$controlledBeforeStock; After=$controlledAfterStock; SavedAward=$award } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $stage 'controlled-roll-result.json') -Encoding UTF8
             Write-Host "Controlled roll evidence: Testone need=$need; Testtwo greed=$greed; saved award to Testone=$award. All three are required for acceptance."
+        }
+        if ($MaintenanceEquip) {
+            @{ Items = (Invoke-TestSql $maintenanceItemsSql); Mapping = (Invoke-TestSql $maintenanceMappingSql) } |
+                ConvertTo-Json | Set-Content -LiteralPath (Join-Path $stage 'maintenance-inventory-after.json') -Encoding UTF8
+            Write-Host 'Maintenance saved inventory captured after normal bot logout. Review identities/mappings with native command evidence; normal loot/consumption may change stock.'
         }
         if ($GearApply) {
             $gearAfterIdentity = Invoke-TestSql $gearIdentitySql
