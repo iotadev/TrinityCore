@@ -2,81 +2,57 @@
 
 ## Experimental Cataclysm development fork
 
-This fork develops optional Playerbots and Auction House Bot modules
-for TrinityCore Cataclysm 4.3.4. It is work in progress, not a ready-to-run
-playerbot dungeon server. Playerbots is disabled by default. A manually
-configured low-level party has been tested locally with starter Warrior,
-Mage, and Priest behavior; this does not establish a complete dungeon clear,
-general class/spec support, or autonomous population. The latest Ragefire check
-also exercised normal bot whispers and the Mage/Priest engine routes.
-Managed roster/lifecycle, a Cata MultiBot bridge and an optional native character
-factory are implemented in development. Their validation boundaries are recorded
-in the [infrastructure acceptance checklist](doc/local/playerbots/PLAYERBOTS_INFRASTRUCTURE_MILESTONE.md);
-this is not a claim of autonomous population or full donor feature parity.
-See the [local documentation index](doc/local/README.md),
-[Playerbots roadmap](doc/local/playerbots/PLAYERBOTS_PORT_ROADMAP.md),
-[implementation handoff](doc/local/playerbots/PLAYERBOTS_WORK_PACKETS.md), and
-[AHBot development plan](doc/local/ahbot/AHBOT_DEV.md) for
-the current scope and validation status.
+TrinityCore Cataclysm 4.3.4 with optional
+[Playerbots](https://github.com/iotadev/cata-playerbots) and
+[Auction House Bot](https://github.com/iotadev/cata-ahbot) modules.
+Playerbots aims to port AzerothCore's existing bot behavior to Cata while
+preserving native server ownership. It is disabled by default and remains alpha.
 
-This repository retains the history and GPL-2.0 license of the upstream
+A human-led Warrior/Mage/Priest party has been exercised outdoors and in Ragefire.
+Managed bot lifecycle, a MultiBot compatibility bridge, explicit gear/quest
+controls and selected-NPC maintenance are implemented. Rogue/Hunter starter
+routes and native Hunter pet control are available behind separate gates but
+have not had a live combat check. Full dungeon clears, complete class/spec
+coverage and autonomous populations remain unverified.
+
+See the [Playerbots overview](https://github.com/iotadev/cata-playerbots),
+[roadmap](doc/local/playerbots/PLAYERBOTS_PORT_ROADMAP.md) and
+[development handoff](doc/local/playerbots/PLAYERBOTS_WORK_PACKETS.md).
+The [documentation index](doc/local/README.md) retains detailed validation and
+history. AHBot scope is described in its repository and
+[development plan](doc/local/ahbot/AHBOT_DEV.md).
+
+### Matching source modules
+
+A core-only checkout contains neither module and can build without them.
+Clone compatible module sources into the directories below before configuring.
+These are statically compiled source modules, not runtime plug-ins or drop-in
+AzerothCore modules.
+
+| Directory | Repository | Matching revision (October 22 documentation refresh) |
+| --- | --- | --- |
+| modules/mod-playerbots | [iotadev/cata-playerbots](https://github.com/iotadev/cata-playerbots) | `1661edaf711ef175cd96a80630bb7738b6a54f18` |
+| modules/mod-ahbot | [iotadev/cata-ahbot](https://github.com/iotadev/cata-ahbot) | `ac2064e91b02af6b345b492a3f3453614b0087ab` |
+
+Check out the listed module revisions for this milestone. The
+[module integration guide](modules/README.md) explains independent build switches
+and configuration placement. AHBot implementation is unchanged by this milestone.
+The optional context exporter/query application is a separate project and is
+not required to run either module.
+
+### Validation scope
+
+October 13 source passed Windows and Linux worldserver/tests-common builds with
+all three installed optional modules enabled: **476/476 tests** on each platform.
+Windows with all three disabled passed **20/20**. Linux realm runtime is
+unverified. Later helper/documentation cleanup and an include-only no-PCH
+correction are not a new full native build qualification.
+The [milestone record](https://github.com/iotadev/cata-playerbots/blob/main/PORTING.md)
+distinguishes builds, observed gameplay and pending checks.
+
+This repository retains the history and GPL license of the upstream
 [Cataclysm Preservation Project TrinityCore](https://github.com/The-Cataclysm-Preservation-Project/TrinityCore).
 It contains server source, not a game client or game data.
-
-Playerbots and AHBot live in separate source repositories and are not included
-in a core-only checkout. The core builds without either module. Enabling them
-requires matching checkouts at `modules/mod-playerbots` and
-`modules/mod-ahbot`, respectively; arbitrary module revisions are not assumed
-compatible. See the [module integration guide](modules/README.md) for the build
-boundary. The modules are independently selectable with
-`-DMODULE_MOD_PLAYERBOTS=ON|OFF` and `-DMODULE_MOD_AHBOT=ON|OFF`.
-
-For reproducible checkouts of this alpha milestone, use the matching module
-revisions below. The milestone combines gear/loot with native quest sharing,
-acceptance, inspection and explicit rewards. Four bots accepted and completed
-one real quest; one bot's explicit turn-in and chosen reward were saved. This
-does not establish automatic quest travel or turn-in. Native sharing availability
-and confirmation identity repairs retain core eligibility checks, including
-when Playerbots is disabled.
-
-The October 2026 development milestone adds default-off Rogue/Hunter combat
-baselines, including native Hunter pet control, and selected-NPC maintenance
-for repair, recovery resupply, qualified junk sales and class training. Inventory
-retention and bounded ordinary-bag upgrades preserve native inventory authority;
-unknown item facts do not authorize sales or equipment changes.
-
-The October 13 source passed Windows and Linux modules-enabled worldserver/
-tests-common builds with **476/476 tests** each. The Windows all-three-modules-off
-boundary passed **20/20**. Later helper/documentation cleanup and a previously
-isolated no-PCH include correction are not a new native build qualification.
-The six-bot roster is saved and prepared, but Rogue/Hunter combat and the expanded
-outdoor raid remain untested. Linux realm runtime, complete rotations and a
-human-led dungeon clear are also unverified. Historical quest evidence remains
-in the [milestone record](doc/local/playerbots/PLAYERBOTS_QUEST_MILESTONE.md).
-The [MultiBot feature map](doc/local/playerbots/PLAYERBOTS_MULTIBOT_FEATURE_MAP.md)
-records server/UI integration gaps.
-
-The experimental gear model covers implemented specs at levels 10–39. Optional
-gear/roll gates default off. Full dungeon clears, broad class/item coverage,
-detailed positioning and Linux realm runtime remain unverified. See the
-[roadmap](doc/local/playerbots/PLAYERBOTS_PORT_ROADMAP.md) and module provenance
-for current limits and evidence. AHBot implementation is unchanged by this batch.
-Optional copied-state observer hooks and bounded passive engine history are
-included. The exporter/query application belongs to the separate context project
-and is not shipped by these two repositories. It is not required to run bots;
-history collection defaults off and is not proof of spell landing or completion.
-The earlier accepted [infrastructure milestone](doc/local/playerbots/PLAYERBOTS_INFRASTRUCTURE_MILESTONE.md)
-retains its historical revisions and client lifecycle evidence.
-
-| Module | Repository | Commit |
-| --- | --- | --- |
-| Playerbots | [iotadev/cata-playerbots](https://github.com/iotadev/cata-playerbots) | `39e7000b6a361bbd455ac006efb6d0d386febe13` |
-| AHBot | [iotadev/cata-ahbot](https://github.com/iotadev/cata-ahbot) | `ac2064e91b02af6b345b492a3f3453614b0087ab` |
-
-Clone each repository into the shown `modules/` directory and check out its
-listed commit before configuring the build. These are source modules compiled
-into this core, not runtime plug-ins. Neither module is required for a core-only
-build. See [module integration](modules/README.md) for configuration details.
 
 ## Upstream build status
 

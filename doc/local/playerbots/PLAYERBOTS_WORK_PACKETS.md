@@ -1,6 +1,6 @@
 # Playerbots development handoff
 
-Updated 2026-10-21. Start here. The [roadmap](PLAYERBOTS_PORT_ROADMAP.md) owns
+Updated 2026-10-22. Start here. The [roadmap](PLAYERBOTS_PORT_ROADMAP.md) owns
 priorities; module [PORTING.md](../../../modules/mod-playerbots/PORTING.md) owns
 donor pins, adaptations and dated implementation/build evidence. The
 [party fixture](PLAYERBOTS_PARTY_FIXTURE.md) owns the test recipe.
@@ -11,11 +11,14 @@ Older chronological handoff detail is preserved in
 
 - Active core: `TrinityCore-publication-candidate`; independent module:
   `modules/mod-playerbots`. Both branches are `work/managed-roster`.
-- This alpha milestone replaces the prior core `80d1fc7491` / module `1e108ca`
-  checkpoint. Module `39e7000b6a361bbd455ac006efb6d0d386febe13` includes maintenance,
+- Published October 21 core `2e03c2a31ee39bd2c39f958014fed9b5de607307`
+  replaces the prior core `80d1fc7491` / module `1e108ca` checkpoint. Module `39e7000b6a361bbd455ac006efb6d0d386febe13` includes maintenance,
   retention, training, native bag-swap and Rogue/Hunter foundations; the core
   README pins that matching revision. Historical pins and intermediate build
   counts belong in PORTING.md, not the resume sequence.
+- October 22 documentation refresh pins module
+  `1661edaf711ef175cd96a80630bb7738b6a54f18` in the core README. Only docs and
+  configuration comments changed; runtime settings and gameplay are unchanged.
 - Final Hunter plus six-role fixture Windows/Linux full-script worldserver/
   tests-common passed **476/476** each with all three modules enabled.
   Prior Windows **worldserver and
@@ -233,8 +236,9 @@ requiring another client session now.
 ## Read-only context companion
 
 Canonical code/docs live in workspace-relative `CATA/cata-context-api/`.
-The optional linked mod-context-api is integrated; CLI/loopback queries are
-read-only. MCP, write controls and independent client observation are not shipped.
+The optional linked mod-context-api is integrated; gameplay integration is
+read-only. The companion's own current documentation owns its query/MCP release
+status; those interfaces are not shipped by the core/Playerbots repositories.
 
 The five-character Ragefire capture completed with combat/offline/stopped
 observations, but counted 434 stale online entity polling observations. Maximum
@@ -250,7 +254,7 @@ explicit. Do not start a second realm on another task's listeners.
 
 Observer development is not a gameplay dependency. Use existing freshness,
 phase, attack-victim/facing and bounded action-history queries when needed.
-The companion's current reader suite passed 43 checks. The October 8 fixture exported optional
+The October 8 companion reader snapshot passed 43 checks. The October 8 fixture exported optional
 phase/engagement diagnostics and observed mutual peer-phase visibility. The
 companion qualified bounded action-history publication and logout/shutdown
 archive behavior in its separate headless fixture, with 43 reader tests. That
@@ -275,12 +279,12 @@ continue porting. Keep any schema/ownership changes in the companion project.
 | `build/linux-vendor-20261011-452/LastTest.log` | Earlier Linux 452-test qualified-junk sale snapshot |
 | `build/linux-recipes-20261011-454/LastTest.log` | Earlier Linux 454-test recipe-catalog snapshot |
 | `build/linux-trainer-catalog-20261011-456/LastTest.log` | Earlier Linux 456-test trainer snapshot |
-| `build/linux-recovery-stock-20261011-457/LastTest.log` | Current Linux 457-test recovery-resupply pass; compiler stopped |
+| `build/linux-recovery-stock-20261011-457/LastTest.log` | Earlier Linux 457-test recovery-resupply pass; compiler stopped |
 | `build/linux-bag-capacity-20261012-460/LastTest.log` | Earlier Linux 460-test bag-capacity pass; Windows counterpart also passed |
 | `build/linux-empty-bag-fill-20261013-461/LastTest.log` | Earlier empty-bag-fill 461-test pass; Windows counterpart also passed |
-| `build/linux-bag-replacement-20261013-463/LastTest.log` | Current restricted empty-bag replacement Linux 463-test pass; compiler stopped |
-| `build/linux-native-bag-swap-20261013-464/LastTest.log` | Current native populated-bag admission Linux 464-test pass; compiler stopped |
-| `build-core-only/Testing/Temporary/LastTest.log` | Current Windows all-modules-off tests-common 20-test pass; worldserver not rebuilt |
+| `build/linux-bag-replacement-20261013-463/LastTest.log` | Earlier restricted empty-bag replacement Linux 463-test pass; compiler stopped |
+| `build/linux-native-bag-swap-20261013-464/LastTest.log` | Earlier native populated-bag admission Linux 464-test pass; compiler stopped |
+| `build-core-only/Testing/Temporary/LastTest.log` | Windows all-modules-off worldserver/tests-common build and 20-test pass |
 | `build/playerbot-smoke-20261008-212331/` | Human quest acquisition and four inspections; failed share; clean shutdown |
 | `build/playerbot-smoke-20261008-215311/` | Four bot shares/progression, Testone turn-in and saved 22979; clean shutdown |
 | `build/playerbot-smoke-20261006-113536/` | One native equip change and saved item preservation |
